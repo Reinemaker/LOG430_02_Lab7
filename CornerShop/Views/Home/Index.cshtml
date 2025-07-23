@@ -1,0 +1,41 @@
+@model List<CornerShop.Models.Store>
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Home";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to Corner Shop</h1>
+    <p class="lead">Multi-store Management System</p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <h2>Stores</h2>
+        <div class="row">
+            @foreach (var store in Model)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">@store.Name</h5>
+                            <p class="card-text">@store.Address</p>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    Last Sync: @store.LastSyncTime.ToString("g")
+                                </small>
+                            </p>
+                            <div class="btn-group">
+                                <a asp-controller="Home" asp-action="Dashboard" asp-route-storeId="@store.Id" 
+                                   class="btn btn-primary">Dashboard</a>
+                                <a asp-controller="Product" asp-action="Index" asp-route-storeId="@store.Id" 
+                                   class="btn btn-secondary">Products</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div> 

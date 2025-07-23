@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Traefik Load Balancer
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@cornershop.local"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  # Multiple ASP.NET Core instances
+  cornershop-app-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MongoDB__ConnectionString=mongodb://admin:password@mongodb:27017
+      - MongoDB__DatabaseName=cornerShop
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+    depends_on:
+      - mongodb
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cornershop.rule=Host(`cornershop.localhost`)"
+      - "traefik.http.routers.cornershop.entrypoints=web"
+      - "traefik.http.services.cornershop.loadbalancer.server.port=5000"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie.name=session"
+
+  cornershop-app-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MongoDB__ConnectionString=mongodb://admin:password@mongodb:27017
+      - MongoDB__DatabaseName=cornerShop
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+    depends_on:
+      - mongodb
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cornershop.rule=Host(`cornershop.localhost`)"
+      - "traefik.http.routers.cornershop.entrypoints=web"
+      - "traefik.http.services.cornershop.loadbalancer.server.port=5000"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie.name=session"
+
+  cornershop-app-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MongoDB__ConnectionString=mongodb://admin:password@mongodb:27017
+      - MongoDB__DatabaseName=cornerShop
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+    depends_on:
+      - mongodb
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cornershop.rule=Host(`cornershop.localhost`)"
+      - "traefik.http.routers.cornershop.entrypoints=web"
+      - "traefik.http.services.cornershop.loadbalancer.server.port=5000"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.cornershop.loadbalancer.sticky.cookie.name=session"
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana for monitoring
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+volumes:
+  mongodb_data:
+  redis_data:
+  prometheus_data:
+  grafana_data: 

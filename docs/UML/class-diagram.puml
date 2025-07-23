@@ -1,0 +1,73 @@
+@startuml Corner Shop Class Diagram
+
+' Style
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+' Interfaces
+interface IDatabaseService {
+    +SearchProducts(term: string): List<Product>
+    +GetProductByName(name: string): Product
+    +UpdateProductStock(name: string, quantity: int): bool
+    +CreateSale(sale: Sale): string
+    +GetRecentSales(limit: int): List<Sale>
+    +GetSaleById(id: string): Sale
+    +CancelSale(id: string): bool
+    +GetAllProducts(): List<Product>
+}
+
+class LocalProductService {
+    +AddProduct(product: Product)
+    +GetAllProducts(): List<Product>
+}
+
+class LocalSaleService {
+    +AddSale(sale: Sale)
+    +GetAllSales(): List<Sale>
+    +GetUnsyncedSales(storeId: string): List<Sale>
+    +MarkSaleAsSynced(saleId: string)
+}
+
+class SyncService {
+    +SyncAllSalesToCentralAsync(storeId: string): Task
+}
+
+class MongoDatabaseService {
+    +CreateSale(sale: Sale): string
+    +GetAllSales(): List<Sale>
+}
+
+' Classes
+class Product {
+    +Id: string
+    +Name: string
+    +Category: string
+    +Price: decimal
+    +Stock: int
+}
+
+class Sale {
+    +Id: string
+    +Items: List<SaleItem>
+    +Total: decimal
+    +Date: DateTime
+    +Status: SaleStatus
+}
+
+class SaleItem {
+    +ProductName: string
+    +Quantity: int
+    +Price: decimal
+}
+
+' Relationships
+IDatabaseService <|.. MongoDatabaseService
+LocalProductService --> "SQLite (Local)"
+LocalSaleService --> "SQLite (Local)"
+SyncService --> LocalSaleService
+SyncService --> MongoDatabaseService
+MongoDatabaseService --> Product
+MongoDatabaseService --> Sale
+Sale --> SaleItem
+
+@enduml 

@@ -1,0 +1,15 @@
+@startuml Process View
+
+actor StoreEmployee
+actor LogisticsManager
+actor HeadOfficeManager
+
+StoreEmployee -> "Web Client": Make Sale / Check Stock
+"Web Client" -> "Local SQLite": Read/Write Sale/Stock
+HeadOfficeManager -> "Web Client": View Reports / Dashboard
+"Web Client" -> "MongoDB (Central)": Query Reports
+LogisticsManager -> "Web Client": Approve Restock
+"Web Client" -> "Sync Service": Trigger Sync
+"Sync Service" -> "MongoDB (Central)": Push Sales/Stock
+
+@enduml 

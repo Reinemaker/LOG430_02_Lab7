@@ -1,0 +1,46 @@
+@model CornerShop.Models.Product
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Add New Product";
+}
+
+<div class="container">
+    <h2>Add New Product</h2>
+    <form asp-action="CreateGlobal" method="post">
+        @Html.AntiForgeryToken()
+        <div class="form-group">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="Category"></label>
+            <input asp-for="Category" class="form-control" />
+            <span asp-validation-for="Category" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="Price"></label>
+            <input asp-for="Price" class="form-control" type="number" step="0.01" />
+            <span asp-validation-for="Price" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="StockQuantity"></label>
+            <input asp-for="StockQuantity" class="form-control" type="number" />
+            <span asp-validation-for="StockQuantity" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="MinimumStockLevel"></label>
+            <input asp-for="MinimumStockLevel" class="form-control" type="number" />
+            <span asp-validation-for="MinimumStockLevel" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="ReorderPoint"></label>
+            <input asp-for="ReorderPoint" class="form-control" type="number" />
+            <span asp-validation-for="ReorderPoint" class="text-danger"></span>
+        </div>
+        <div class="form-group mt-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a href="@Url.Action("All", "Product")" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div> 

@@ -1,0 +1,51 @@
+@model IEnumerable<CornerShop.Models.Sale>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Sales";
+    var storeId = ViewBag.StoreId as string;
+    var usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+}
+<h2>Sales</h2>
+<div class="mb-3">
+    <a href="@Url.Action("Create", "Sale", new { storeId = storeId })" class="btn btn-primary">Add New Sale</a>
+</div>
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No sales found for this store.</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Sale ID</th>
+                <th>Date</th>
+                <th>Total Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var sale in Model)
+        {
+            <tr style="cursor:pointer;" onclick="window.location='@Url.Action("Details", "Sale", new { id = sale.Id })'">
+                <td>@sale.Id</td>
+                <td>@sale.Date.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>@sale.TotalAmount.ToString("C", usCulture)</td>
+                <td>@sale.Status</td>
+                <td onclick="event.stopPropagation();">
+                    @if (sale.Status != "Cancelled")
+                    {
+                        <form asp-action="Delete" method="post" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@sale.Id" />
+                            <input type="hidden" name="storeId" value="@storeId" />
+                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Are you sure you want to cancel this sale? This will restore the stock quantities.');">Cancel Sale</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+} 

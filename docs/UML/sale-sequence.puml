@@ -1,0 +1,36 @@
+@startuml Sale Process Sequence
+
+actor User
+participant "Program" as UI
+participant "DatabaseService" as DB
+participant "MongoDB" as Mongo
+
+User -> UI: Start Sale
+activate UI
+
+UI -> DB: GetProductByName(productName)
+activate DB
+DB -> Mongo: Find product
+Mongo --> DB: Return product
+DB --> UI: Return product
+deactivate DB
+
+UI -> UI: Calculate total
+UI -> DB: CreateSale(sale)
+activate DB
+DB -> Mongo: Insert sale
+Mongo --> DB: Return sale ID
+DB --> UI: Return sale ID
+deactivate DB
+
+UI -> DB: UpdateProductStock(productName, quantity)
+activate DB
+DB -> Mongo: Update stock
+Mongo --> DB: Return result
+DB --> UI: Return result
+deactivate DB
+
+UI --> User: Display confirmation
+deactivate UI
+
+@enduml

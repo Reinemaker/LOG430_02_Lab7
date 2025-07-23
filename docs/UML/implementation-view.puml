@@ -1,0 +1,30 @@
+@startuml Implementation View
+
+package "Controllers" {
+    class StoreController
+    class ProductController
+    class SaleController
+    class AdminController
+}
+
+package "Services" {
+    class LocalProductService
+    class LocalSaleService
+    class SyncService
+    class MongoDatabaseService
+}
+
+package "Data" {
+    class SQLite
+    class MongoDB
+}
+
+StoreController --> LocalProductService
+SaleController --> LocalSaleService
+AdminController --> SyncService
+SyncService --> MongoDatabaseService
+LocalProductService --> SQLite
+LocalSaleService --> SQLite
+MongoDatabaseService --> MongoDB
+
+@enduml 

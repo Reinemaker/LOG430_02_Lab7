@@ -1,0 +1,38 @@
+@model IEnumerable<CornerShop.Models.Product>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Create Sale";
+    var storeId = ViewBag.StoreId as string;
+}
+<h2>Create Sale</h2>
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="storeId" value="@storeId" />
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Available Stock</th>
+                <th>Quantity to Sell</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var product in Model)
+        {
+            <tr>
+                <td>@product.Name</td>
+                <td>@product.Price</td>
+                <td>@product.StockQuantity</td>
+                <td>
+                    <input type="number" name="productQuantities[@product.Id]" class="form-control" min="0" max="@product.StockQuantity" value="0" />
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <div class="form-group mt-3">
+        <button type="submit" class="btn btn-primary">Create Sale</button>
+        <a href="@Url.Action("Index", "Sale", new { storeId = storeId })" class="btn btn-secondary">Cancel</a>
+    </div>
+</form> 

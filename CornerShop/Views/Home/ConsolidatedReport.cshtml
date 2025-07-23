@@ -1,0 +1,51 @@
+@model Dictionary<string, object>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Sales Report";
+    var storeStats = (List<Dictionary<string, object>>)Model["StoreStatistics"];
+    var totalRevenue = (decimal)Model["TotalRevenue"];
+    var usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+}
+<h2>Sales Report</h2>
+
+<div class="mb-3">
+    <form asp-controller="Admin" asp-action="SyncAllStores" method="post" style="display:inline;">
+        <button type="submit" class="btn btn-warning">Sync All Stores</button>
+    </form>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Summary</h5>
+        <p class="card-text">Total Stores: @Model["TotalStores"]</p>
+        <p class="card-text">Total Sales: @Model["TotalSales"]</p>
+        <p class="card-text">Total Revenue: @totalRevenue.ToString("C", usCulture)</p>
+    </div>
+</div>
+
+<h3>Store Details</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Store Name</th>
+            <th>Number of Sales</th>
+            <th>Total Revenue</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var store in storeStats)
+    {
+        <tr>
+            <td>@store["StoreName"]</td>
+            <td>@store["SalesCount"]</td>
+            <td>@(((decimal)store["Revenue"]).ToString("C", usCulture))</td>
+        </tr>
+    }
+    </tbody>
+    <tfoot>
+        <tr class="table-primary">
+            <th colspan="2" class="text-end">Grand Total</th>
+            <th>@totalRevenue.ToString("C", usCulture)</th>
+        </tr>
+    </tfoot>
+</table> 

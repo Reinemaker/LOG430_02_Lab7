@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test - CornerShop API</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { margin: 2rem; }
+        .result { margin-top: 1rem; }
+        .error { background: #f8d7da; color: #842029; padding: 1rem; border-radius: 5px; }
+        .success { background: #d1e7dd; color: #0f5132; padding: 1rem; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h2>CORS Test - CornerShop API</h2>
+    <p>This page tests CORS functionality by making requests to the CornerShop API from a different origin.</p>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Test 1: Get All Products</h5>
+            <button class="btn btn-primary mb-2" onclick="testGet('/api/v1/products', 'result1')">Test GET /api/v1/products</button>
+            <div id="result1" class="result"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Test 2: Get All Stores</h5>
+            <button class="btn btn-primary mb-2" onclick="testGet('/api/v1/stores', 'result2')">Test GET /api/v1/stores</button>
+            <div id="result2" class="result"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Test 3: Search Products</h5>
+            <input type="text" id="searchTerm" placeholder="Search term" class="form-control mb-2" value="test">
+            <button class="btn btn-primary mb-2" onclick="testGet('/api/v1/products/search?searchTerm=' + encodeURIComponent(document.getElementById('searchTerm').value), 'result3')">Test GET /api/v1/products/search</button>
+            <div id="result3" class="result"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Test 4: Create Product (POST)</h5>
+            <button class="btn btn-primary mb-2" onclick="testPostProduct()">Test POST /api/v1/products</button>
+            <div id="result4" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+    const apiBase = window.location.origin;
+
+    async function testGet(endpoint, resultId) {
+        const resultDiv = document.getElementById(resultId);
+        resultDiv.innerHTML = '';
+        try {
+            const response = await fetch(apiBase + endpoint, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+            });
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                data = { error: 'Non-JSON response', details: text };
+            }
+            if (response.ok) {
+                resultDiv.innerHTML = '<pre class="success">' + JSON.stringify(data, null, 2) + '</pre>';
+            } else {
+                resultDiv.innerHTML = '<pre class="error">' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+        } catch (err) {
+            resultDiv.innerHTML = '<pre class="error">' + JSON.stringify({ error: err.message }) + '</pre>';
+        }
+    }
+
+    async function testPostProduct() {
+        const resultDiv = document.getElementById('result4');
+        resultDiv.innerHTML = '';
+        const product = {
+            name: 'CORS Test Product',
+            category: 'Test',
+            price: 1.23,
+            storeId: 'test-store',
+            stockQuantity: 10,
+            minimumStockLevel: 2,
+            reorderPoint: 1
+        };
+        try {
+            const response = await fetch(apiBase + '/api/v1/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(product)
+            });
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                data = { error: 'Non-JSON response', details: text };
+            }
+            if (response.ok) {
+                resultDiv.innerHTML = '<pre class="success">' + JSON.stringify(data, null, 2) + '</pre>';
+            } else {
+                resultDiv.innerHTML = '<pre class="error">' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+        } catch (err) {
+            resultDiv.innerHTML = '<pre class="error">' + JSON.stringify({ error: err.message }) + '</pre>';
+        }
+    }
+    </script>
+</body>
+</html> 

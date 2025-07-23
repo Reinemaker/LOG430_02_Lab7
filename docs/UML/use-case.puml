@@ -1,0 +1,23 @@
+@startuml Use Case View
+
+actor "Store Employee" as StoreEmp
+actor "Logistics Manager" as LogMgr
+actor "Head Office Manager" as HOManager
+
+usecase "Generate Consolidated Sales Report" as UC1
+usecase "Consult Central Stock & Trigger Restock" as UC2
+usecase "View Store Performance Dashboard" as UC3
+usecase "Update Products from Head Office" as UC4
+usecase "Restock Store from Logistics" as UC6
+usecase "Critical Stock Alert" as UC7
+usecase "Minimal Web Interface for Managers" as UC8
+
+StoreEmp --> UC2
+HOManager --> UC1
+HOManager --> UC3
+HOManager --> UC4
+LogMgr --> UC6
+UC7 ..> HOManager : <<alert>>
+HOManager --> UC8
+
+@enduml 

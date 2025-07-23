@@ -1,0 +1,68 @@
+@model IEnumerable<CornerShop.Models.Product>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Store Products";
+    var usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+}
+
+<div class="container">
+    <h2>Products for @ViewBag.Store.Name</h2>
+    
+    <div class="mb-3">
+        <a href="@Url.Action("Create", "Product", new { storeId = ViewBag.Store.Id })" class="btn btn-primary">Add New Product</a>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col">
+            <form asp-action="Search" method="get" class="form-inline">
+                <input type="hidden" name="storeId" value="@ViewBag.Store.Id" />
+                <div class="input-group">
+                    <input type="text" name="searchTerm" class="form-control" placeholder="Search products...">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-outline-secondary">Search</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in Model)
+            {
+                <tr>
+                    <td>@product.Name</td>
+                    <td>@product.Category</td>
+                    <td>@product.Price.ToString("C", usCulture)</td>
+                    <td>@product.StockQuantity</td>
+                    <td>@product.LastUpdated.ToString("g")</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="@Url.Action("Edit", "Product", new { id = product.Id, storeId = product.StoreId })" 
+                               class="btn btn-sm btn-primary">Edit</a>
+                            <form asp-action="Delete" method="post" style="display: inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@product.Id" />
+                                <input type="hidden" name="storeId" value="@product.StoreId" />
+                                <button type="submit" class="btn btn-sm btn-danger" 
+                                        onclick="return confirm('Are you sure you want to delete this product?');">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div> 

@@ -1,0 +1,31 @@
+@model IEnumerable<CornerShop.Models.SaleWithStoreNameViewModel>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "All Sales";
+    var usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+}
+<h2>All Sales</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Sale ID</th>
+            <th>Store</th>
+            <th>Total Amount</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var vm in Model)
+    {
+        if (vm.Sale != null)
+        {
+            <tr style="cursor:pointer;" onclick="window.location='@Url.Action("Details", "Sale", new { id = vm.Sale.Id })'">
+                <td>@vm.Sale.Id</td>
+                <td>@vm.StoreName</td>
+                <td>@vm.Sale.TotalAmount.ToString("C", usCulture)</td>
+                <td>@vm.Sale.Date.ToString("yyyy-MM-dd HH:mm")</td>
+            </tr>
+        }
+    }
+    </tbody>
+</table> 

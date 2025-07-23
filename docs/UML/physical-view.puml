@@ -1,0 +1,17 @@
+@startuml Deployment View
+
+node "Store Device" {
+    database "Local SQLite"
+    component "Web Client"
+}
+
+node "Head Office Server" {
+    database "MongoDB (Central)"
+    component "Sync Service"
+}
+
+"Web Client" --> "Local SQLite"
+"Sync Service" --> "MongoDB (Central)"
+"Web Client" ..> "Sync Service": HTTP/REST
+
+@enduml 

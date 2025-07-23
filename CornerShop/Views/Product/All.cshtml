@@ -1,0 +1,45 @@
+@model IEnumerable<CornerShop.Models.ProductWithStoreNameViewModel>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "All Products";
+    var usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+}
+<h2>All Products</h2>
+<div class="mb-3">
+    <a href="@Url.Action("CreateGlobal", "Product")" class="btn btn-primary">Add New Product</a>
+</div>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Store</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var vm in Model)
+    {
+        if (vm.Product != null)
+        {
+            <tr>
+                <td>@vm.Product.Name</td>
+                <td>@vm.Product.Category</td>
+                <td>@vm.Product.Price.ToString("C", usCulture)</td>
+                <td>@vm.Product.StockQuantity</td>
+                <td>@vm.StoreName</td>
+                <td>
+                    <a href="@Url.Action("EditGlobal", "Product", new { id = vm.Product.Id })" class="btn btn-sm btn-primary">Edit</a>
+                    <form asp-action="DeleteGlobal" method="post" style="display:inline;">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@vm.Product.Id" />
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this product?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    }
+    </tbody>
+</table> 

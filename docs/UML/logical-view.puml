@@ -1,0 +1,52 @@
+@startuml Logical View
+
+package "Presentation Layer" {
+    class "Web Client"
+}
+
+package "Business Layer" {
+    class "Sync Service"
+    class "Product Management"
+    class "Sale Management"
+}
+
+package "Data Layer" {
+    class "MongoDB (Central)"
+    class "SQLite (Local, per Store)"
+}
+
+package "Models" {
+    class Product {
+        +Name: string
+        +Category: string
+        +Price: decimal
+        +StockQuantity: int
+    }
+
+    class Sale {
+        +Id: string
+        +Date: DateTime
+        +Items: List<SaleItem>
+        +Total: decimal
+        +Status: SaleStatus
+    }
+
+    class SaleItem {
+        +ProductName: string
+        +Quantity: int
+        +Price: decimal
+    }
+}
+
+"Web Client" --> "Product Management"
+"Web Client" --> "Sale Management"
+"Product Management" --> "SQLite (Local, per Store)"
+"Sale Management" --> "SQLite (Local, per Store)"
+"Sync Service" --> "SQLite (Local, per Store)"
+"Sync Service" --> "MongoDB (Central)"
+"Product Management" ..> Product
+"Sale Management" ..> Sale
+Sale *-- SaleItem
+SaleItem ..> Product
+
+@enduml 

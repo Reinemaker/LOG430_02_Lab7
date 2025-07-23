@@ -1,0 +1,43 @@
+@startuml Development View
+
+package "CornerShop" {
+    [Program.cs]
+    package "Models" {
+        [Product.cs]
+        [Sale.cs]
+        [SaleItem.cs]
+    }
+    
+    package "Services" {
+        [DatabaseService.cs]
+        [IDatabaseService.cs]
+    }
+}
+
+package "CornerShop.Tests" {
+    [DatabaseServiceTests.cs]
+    [UnitTest1.cs]
+}
+
+package "Infrastructure" {
+    [Dockerfile]
+    [docker-compose.yml]
+}
+
+package "Documentation" {
+    [README.md]
+    package "docs" {
+        [ADR/]
+        [UML/]
+    }
+}
+
+[Program.cs] --> [DatabaseService.cs]
+[DatabaseService.cs] --> [IDatabaseService.cs]
+[DatabaseService.cs] --> [Product.cs]
+[DatabaseService.cs] --> [Sale.cs]
+[Sale.cs] --> [SaleItem.cs]
+[DatabaseServiceTests.cs] --> [DatabaseService.cs]
+[UnitTest1.cs] --> [DatabaseService.cs]
+
+@enduml 
