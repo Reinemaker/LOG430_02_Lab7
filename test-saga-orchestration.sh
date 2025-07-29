@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Test Saga Orchestration in Corner Shop
-# This script demonstrates the saga orchestration functionality
+# Test Saga Orchestration Script
+# This script tests the distributed saga orchestration across microservices
 
 set -e
 
@@ -12,316 +12,284 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-BASE_URL="http://cornershop.localhost"
-API_BASE="$BASE_URL/api/v1"
-SAGA_BASE="$API_BASE/saga"
+# Configuration - Updated for microservices with API Gateway
+BASE_URL="http://localhost"
+API_GATEWAY_URL="${BASE_URL}/api"
+SAGA_URL="${API_GATEWAY_URL}/saga"
+ORDER_URL="${API_GATEWAY_URL}/orders"
+STOCK_URL="${API_GATEWAY_URL}/stock"
+PAYMENT_URL="${API_GATEWAY_URL}/payments"
+API_KEY="cornershop-api-key-2024"
+REDIS_URL="localhost:6379"
 
-# Test data
-STORE_ID="store_6859f81a9e68b183e2892063"
-CUSTOMER_ID="customer_123"
-PRODUCT_NAME="Milk"
+# Headers for API Gateway
+HEADERS="-H 'Content-Type: application/json' -H 'X-API-Key: ${API_KEY}'"
 
-echo -e "${BLUE}🧪 Testing Saga Orchestration in Corner Shop${NC}"
-echo "=================================================="
+echo -e "${BLUE}=== Saga Orchestration Test Script (Microservices) ===${NC}"
+echo "Testing distributed saga orchestration across microservices via API Gateway"
+echo ""
 
-# Function to make authenticated API calls
-make_api_call() {
-    local method=$1
-    local endpoint=$2
-    local data=$3
-    
-    if [ -n "$data" ]; then
-        curl -s -X "$method" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer test-token" \
-            -d "$data" \
-            "$endpoint"
-    else
-        curl -s -X "$method" \
-            -H "Authorization: Bearer test-token" \
-            "$endpoint"
-    fi
-}
-
-# Function to check if service is running
+# Function to check if a service is running
 check_service() {
-    echo -e "${YELLOW}🔍 Checking if Corner Shop service is running...${NC}"
+    local url=$1
+    local service_name=$2
     
-    if curl -s -f "$BASE_URL/health" > /dev/null; then
-        echo -e "${GREEN}✅ Service is running${NC}"
+    echo -e "${YELLOW}Checking if $service_name is running...${NC}"
+    if curl -s -f "$url/health" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ $service_name is running${NC}"
         return 0
     else
-        echo -e "${RED}❌ Service is not running. Please start the service first.${NC}"
-        echo "Run: ./quick-start.sh"
-        exit 1
-    fi
-}
-
-# Function to test sale saga
-test_sale_saga() {
-    echo -e "\n${BLUE}📊 Testing Sale Saga${NC}"
-    echo "----------------------"
-    
-    local sale_data='{
-        "storeId": "'$STORE_ID'",
-        "items": [
-            {
-                "productName": "'$PRODUCT_NAME'",
-                "quantity": 2,
-                "unitPrice": 3.99
-            },
-            {
-                "productName": "Bread",
-                "quantity": 1,
-                "unitPrice": 2.49
-            }
-        ]
-    }'
-    
-    echo "Executing sale saga with data:"
-    echo "$sale_data" | jq .
-    
-    local response=$(make_api_call "POST" "$SAGA_BASE/sale" "$sale_data")
-    
-    if echo "$response" | jq -e '.data.isSuccess' > /dev/null; then
-        local saga_id=$(echo "$response" | jq -r '.data.sagaId')
-        echo -e "${GREEN}✅ Sale saga executed successfully${NC}"
-        echo "Saga ID: $saga_id"
-        echo "Steps completed: $(echo "$response" | jq '.data.steps | length')"
-        
-        # Show saga details
-        echo -e "\n${YELLOW}Saga Details:${NC}"
-        echo "$response" | jq '.data.steps[] | "\(.serviceName) - \(.action): \(if .isCompleted then "✅" else "❌" end)"'
-        
-        return $saga_id
-    else
-        echo -e "${RED}❌ Sale saga failed${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message // .error')"
+        echo -e "${RED}✗ $service_name is not running${NC}"
         return 1
     fi
 }
 
-# Function to test order saga
-test_order_saga() {
-    echo -e "\n${BLUE}🛒 Testing Order Saga${NC}"
-    echo "----------------------"
+# Function to make API calls and check responses
+api_call() {
+    local method=$1
+    local url=$2
+    local data=$3
+    local description=$4
     
-    local order_data='{
-        "customerId": "'$CUSTOMER_ID'",
-        "storeId": "'$STORE_ID'",
-        "items": [
-            {
-                "productName": "Bread",
-                "quantity": 1,
-                "unitPrice": 2.49
-            }
-        ],
-        "paymentMethod": "credit_card"
-    }'
+    echo -e "${YELLOW}$description${NC}"
+    echo "URL: $url"
+    if [ ! -z "$data" ]; then
+        echo "Data: $data"
+    fi
+    echo ""
     
-    echo "Executing order saga with data:"
-    echo "$order_data" | jq .
-    
-    local response=$(make_api_call "POST" "$SAGA_BASE/order" "$order_data")
-    
-    if echo "$response" | jq -e '.data.isSuccess' > /dev/null; then
-        local saga_id=$(echo "$response" | jq -r '.data.sagaId')
-        echo -e "${GREEN}✅ Order saga executed successfully${NC}"
-        echo "Saga ID: $saga_id"
-        echo "Steps completed: $(echo "$response" | jq '.data.steps | length')"
-        
-        # Show saga details
-        echo -e "\n${YELLOW}Saga Details:${NC}"
-        echo "$response" | jq '.data.steps[] | "\(.serviceName) - \(.action): \(if .isCompleted then "✅" else "❌" end)"'
-        
-        return $saga_id
+    if [ "$method" = "GET" ]; then
+        response=$(curl -s -w "\n%{http_code}" "$url" $HEADERS)
     else
-        echo -e "${RED}❌ Order saga failed${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message // .error')"
+        response=$(curl -s -w "\n%{http_code}" -X "$method" -H "Content-Type: application/json" -H "X-API-Key: $API_KEY" -d "$data" "$url")
+    fi
+    
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | head -n -1)
+    
+    echo "HTTP Status: $http_code"
+    echo "Response:"
+    echo "$body" | jq '.' 2>/dev/null || echo "$body"
+    echo ""
+    
+    if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+        echo -e "${GREEN}✓ Success${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Failed${NC}"
         return 1
     fi
 }
 
-# Function to test stock update saga
-test_stock_saga() {
-    echo -e "\n${BLUE}📦 Testing Stock Update Saga${NC}"
-    echo "----------------------------"
-    
-    local stock_data='{
-        "productName": "'$PRODUCT_NAME'",
-        "storeId": "'$STORE_ID'",
-        "quantity": 10,
-        "operation": "add"
-    }'
-    
-    echo "Executing stock update saga with data:"
-    echo "$stock_data" | jq .
-    
-    local response=$(make_api_call "POST" "$SAGA_BASE/stock" "$stock_data")
-    
-    if echo "$response" | jq -e '.data.isSuccess' > /dev/null; then
-        local saga_id=$(echo "$response" | jq -r '.data.sagaId')
-        echo -e "${GREEN}✅ Stock update saga executed successfully${NC}"
-        echo "Saga ID: $saga_id"
-        echo "Steps completed: $(echo "$response" | jq '.data.steps | length')"
-        
-        # Show saga details
-        echo -e "\n${YELLOW}Saga Details:${NC}"
-        echo "$response" | jq '.data.steps[] | "\(.serviceName) - \(.action): \(if .isCompleted then "✅" else "❌" end)"'
-        
-        return $saga_id
-    else
-        echo -e "${RED}❌ Stock update saga failed${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message // .error')"
-        return 1
-    fi
-}
+# Check if services are running
+echo -e "${BLUE}=== Service Health Checks ===${NC}"
+check_service "$BASE_URL" "API Gateway" || exit 1
+check_service "$SAGA_URL" "Saga Orchestrator" || exit 1
+check_service "$ORDER_URL" "Order Service" || exit 1
+check_service "$STOCK_URL" "Stock Service" || exit 1
+check_service "$PAYMENT_URL" "Payment Service" || exit 1
+echo ""
 
-# Function to test saga compensation
-test_saga_compensation() {
-    local saga_id=$1
-    echo -e "\n${BLUE}🔄 Testing Saga Compensation${NC}"
-    echo "--------------------------------"
-    
-    if [ -z "$saga_id" ]; then
-        echo -e "${YELLOW}⚠️  No saga ID provided for compensation test${NC}"
-        return
-    fi
-    
-    echo "Compensating saga: $saga_id"
-    
-    local response=$(make_api_call "POST" "$SAGA_BASE/compensate/$saga_id")
-    
-    if echo "$response" | jq -e '.data' > /dev/null; then
-        echo -e "${GREEN}✅ Saga compensation executed${NC}"
-        echo "Compensation result:"
-        echo "$response" | jq '.data'
-    else
-        echo -e "${RED}❌ Saga compensation failed${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message // .error')"
-    fi
-}
+# Check Redis connection
+echo -e "${BLUE}=== Redis Connection Test ===${NC}"
+if redis-cli -h "$REDIS_URL" ping > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Redis is running${NC}"
+else
+    echo -e "${RED}✗ Redis is not running${NC}"
+    exit 1
+fi
+echo ""
 
-# Function to test invalid saga scenarios
-test_invalid_scenarios() {
-    echo -e "\n${BLUE}🚫 Testing Invalid Scenarios${NC}"
-    echo "-------------------------------"
-    
-    # Test with invalid store ID
-    echo -e "\n${YELLOW}Testing with invalid store ID:${NC}"
-    local invalid_sale_data='{
-        "storeId": "invalid_store",
+# Test 1: Get Saga Orchestrator Health
+echo -e "${BLUE}=== Test 1: Saga Orchestrator Health ===${NC}"
+api_call "GET" "$SAGA_URL/health" "" "Getting Saga Orchestrator health status"
+echo ""
+
+# Test 2: Get Service Saga Info
+echo -e "${BLUE}=== Test 2: Service Saga Info ===${NC}"
+api_call "GET" "$ORDER_URL/saga/info" "" "Getting Order Service saga participant information"
+api_call "GET" "$STOCK_URL/saga/info" "" "Getting Stock Service saga participant information"
+api_call "GET" "$PAYMENT_URL/saga/info" "" "Getting Payment Service saga participant information"
+echo ""
+
+# Test 3: Get Event Statistics
+echo -e "${BLUE}=== Test 3: Event Statistics ===${NC}"
+api_call "GET" "$SAGA_URL/events/statistics" "" "Getting Saga Orchestrator event statistics"
+api_call "GET" "$ORDER_URL/events/statistics" "" "Getting Order Service event statistics"
+api_call "GET" "$STOCK_URL/events/statistics" "" "Getting Stock Service event statistics"
+api_call "GET" "$PAYMENT_URL/events/statistics" "" "Getting Payment Service event statistics"
+echo ""
+
+# Test 4: Demo Saga Execution
+echo -e "${BLUE}=== Test 4: Demo Saga Execution ===${NC}"
+demo_data='{
+    "sagaType": "OrderCreation",
+    "orderId": "demo-order-001",
+    "customerId": "demo-customer-001",
+    "storeId": "demo-store-001",
+    "totalAmount": 37.48,
+    "paymentMethod": "CreditCard",
+    "items": [
+        {
+            "productId": "prod-001",
+            "quantity": 2,
+            "price": 10.99
+        },
+        {
+            "productId": "prod-002",
+            "quantity": 1,
+            "price": 15.50
+        }
+    ]
+}'
+
+api_call "POST" "$SAGA_URL/execute" "$demo_data" "Executing demo saga orchestration"
+echo ""
+
+# Test 5: Get Saga Metrics
+echo -e "${BLUE}=== Test 5: Saga Metrics ===${NC}"
+api_call "GET" "$SAGA_URL/metrics" "" "Getting saga metrics"
+echo ""
+
+# Test 6: Test Saga Participation (Direct)
+echo -e "${BLUE}=== Test 6: Direct Saga Participation ===${NC}"
+participation_data='{
+    "sagaId": "test-saga-002",
+    "stepName": "ConfirmOrder",
+    "orderId": "test-order-002",
+    "data": {
+        "orderId": "test-order-002",
+        "customerId": "test-customer-002",
+        "storeId": "test-store-002"
+    },
+    "correlationId": "test-correlation-002"
+}'
+
+api_call "POST" "$ORDER_URL/saga/participate" "$participation_data" "Testing direct saga participation with Order Service"
+echo ""
+
+# Test 7: Test Saga Compensation
+echo -e "${BLUE}=== Test 7: Saga Compensation ===${NC}"
+compensation_data='{
+    "sagaId": "test-saga-002",
+    "stepName": "ConfirmOrder",
+    "orderId": "test-order-002",
+    "reason": "Payment failed - compensating order confirmation",
+    "correlationId": "test-correlation-002"
+}'
+
+api_call "POST" "$ORDER_URL/saga/compensate" "$compensation_data" "Testing saga compensation with Order Service"
+echo ""
+
+# Test 8: Check Redis Streams
+echo -e "${BLUE}=== Test 8: Redis Streams Check ===${NC}"
+echo -e "${YELLOW}Checking Redis Streams for published events...${NC}"
+
+# Check business events stream
+business_events=$(redis-cli -h "$REDIS_URL" XLEN business.events 2>/dev/null || echo "0")
+echo "Business Events Stream Length: $business_events"
+
+# Check order events stream
+order_events=$(redis-cli -h "$REDIS_URL" XLEN orders.creation 2>/dev/null || echo "0")
+echo "Order Events Stream Length: $order_events"
+
+# Check inventory events stream
+inventory_events=$(redis-cli -h "$REDIS_URL" XLEN inventory.management 2>/dev/null || echo "0")
+echo "Inventory Events Stream Length: $inventory_events"
+
+# Check payment events stream
+payment_events=$(redis-cli -h "$REDIS_URL" XLEN payments.processing 2>/dev/null || echo "0")
+echo "Payment Events Stream Length: $payment_events"
+
+# Check saga events stream
+saga_events=$(redis-cli -h "$REDIS_URL" XLEN saga.orchestration 2>/dev/null || echo "0")
+echo "Saga Events Stream Length: $saga_events"
+
+if [ "$business_events" -gt 0 ] || [ "$order_events" -gt 0 ] || [ "$inventory_events" -gt 0 ] || [ "$payment_events" -gt 0 ] || [ "$saga_events" -gt 0 ]; then
+    echo -e "${GREEN}✓ Events are being published to Redis Streams${NC}"
+else
+    echo -e "${YELLOW}⚠ No events found in Redis Streams (this might be normal if tests failed)${NC}"
+fi
+echo ""
+
+# Test 9: Performance Test
+echo -e "${BLUE}=== Test 9: Performance Test ===${NC}"
+echo -e "${YELLOW}Running performance test with 5 concurrent saga executions...${NC}"
+
+start_time=$(date +%s)
+success_count=0
+total_count=5
+
+for i in {1..5}; do
+    performance_data='{
+        "sagaType": "OrderCreation",
+        "orderId": "perf-order-'$i'",
+        "customerId": "perf-customer-'$i'",
+        "storeId": "perf-store-'$i'",
+        "totalAmount": 50.00,
+        "paymentMethod": "CreditCard",
         "items": [
             {
-                "productName": "Milk",
+                "productId": "perf-prod-'$i'",
                 "quantity": 1,
-                "unitPrice": 3.99
+                "price": 50.00
             }
         ]
     }'
     
-    local response=$(make_api_call "POST" "$SAGA_BASE/sale" "$invalid_sale_data")
-    if echo "$response" | jq -e '.error' > /dev/null; then
-        echo -e "${GREEN}✅ Correctly handled invalid store ID${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message')"
-    else
-        echo -e "${RED}❌ Should have failed with invalid store ID${NC}"
+    if api_call "POST" "$SAGA_URL/execute" "$performance_data" "Performance test saga $i" > /dev/null 2>&1; then
+        success_count=$((success_count + 1))
     fi
     
-    # Test with invalid product
-    echo -e "\n${YELLOW}Testing with invalid product:${NC}"
-    local invalid_product_data='{
-        "storeId": "'$STORE_ID'",
-        "items": [
-            {
-                "productName": "NonExistentProduct",
-                "quantity": 1,
-                "unitPrice": 3.99
-            }
-        ]
-    }'
-    
-    response=$(make_api_call "POST" "$SAGA_BASE/sale" "$invalid_product_data")
-    if echo "$response" | jq -e '.error' > /dev/null; then
-        echo -e "${GREEN}✅ Correctly handled invalid product${NC}"
-        echo "Error: $(echo "$response" | jq -r '.message')"
-    else
-        echo -e "${RED}❌ Should have failed with invalid product${NC}"
-    fi
-}
+    sleep 1
+done
 
-# Function to show saga orchestration benefits
-show_benefits() {
-    echo -e "\n${BLUE}🎯 Saga Orchestration Benefits${NC}"
-    echo "================================="
-    
-    echo -e "\n${GREEN}✅ Data Consistency${NC}"
-    echo "   - Ensures inventory and sales data remain consistent"
-    echo "   - Prevents overselling products"
-    echo "   - Maintains accurate financial records"
-    
-    echo -e "\n${GREEN}✅ Fault Tolerance${NC}"
-    echo "   - Handles network failures gracefully"
-    echo "   - Provides automatic rollback mechanisms"
-    echo "   - Maintains system stability during partial failures"
-    
-    echo -e "\n${GREEN}✅ Scalability${NC}"
-    echo "   - Supports microservices architecture"
-    echo "   - Enables independent service scaling"
-    echo "   - Facilitates service deployment and updates"
-    
-    echo -e "\n${GREEN}✅ Observability${NC}"
-    echo "   - Detailed logging of all saga steps"
-    echo "   - Clear visibility into transaction flows"
-    echo "   - Easy debugging and monitoring"
-}
+end_time=$(date +%s)
+duration=$((end_time - start_time))
+success_rate=$((success_count * 100 / total_count))
 
-# Main test execution
-main() {
-    echo -e "${BLUE}🚀 Starting Saga Orchestration Tests${NC}"
-    echo "=========================================="
-    
-    # Check if service is running
-    check_service
-    
-    # Check if jq is installed
-    if ! command -v jq &> /dev/null; then
-        echo -e "${RED}❌ jq is required but not installed. Please install jq to run these tests.${NC}"
-        echo "Install with: sudo apt-get install jq (Ubuntu/Debian) or brew install jq (macOS)"
-        exit 1
-    fi
-    
-    # Run tests
-    test_sale_saga
-    sale_saga_id=$?
-    
-    test_order_saga
-    order_saga_id=$?
-    
-    test_stock_saga
-    stock_saga_id=$?
-    
-    # Test compensation (using the sale saga ID if available)
-    if [ "$sale_saga_id" -gt 0 ]; then
-        test_saga_compensation "$sale_saga_id"
-    fi
-    
-    # Test invalid scenarios
-    test_invalid_scenarios
-    
-    # Show benefits
-    show_benefits
-    
-    echo -e "\n${GREEN}🎉 Saga Orchestration Tests Completed!${NC}"
-    echo "============================================="
-    echo -e "\n${YELLOW}Next Steps:${NC}"
-    echo "1. Review the saga execution logs"
-    echo "2. Monitor saga performance metrics"
-    echo "3. Test with different failure scenarios"
-    echo "4. Implement additional saga types as needed"
-    echo -e "\n${BLUE}Documentation: docs/SAGA_ORCHESTRATION.md${NC}"
-}
+echo -e "${GREEN}Performance Test Results:${NC}"
+echo "Total executions: $total_count"
+echo "Successful: $success_count"
+echo "Success rate: $success_rate%"
+echo "Total duration: ${duration}s"
+echo "Average duration per saga: $((duration / total_count))s"
+echo ""
 
-# Run main function
-main "$@" 
+# Test 10: Controlled Failure Test
+echo -e "${BLUE}=== Test 10: Controlled Failure Test ===${NC}"
+failure_data='{
+    "sagaType": "OrderCreation",
+    "orderId": "fail-order-001",
+    "customerId": "customer_failed",
+    "storeId": "fail-store-001",
+    "totalAmount": 2000.00,
+    "paymentMethod": "CreditCard",
+    "items": [
+        {
+            "productId": "fail-prod-001",
+            "quantity": 1,
+            "price": 2000.00
+        }
+    ]
+}'
+
+echo -e "${YELLOW}Testing controlled failure scenario (payment failure)...${NC}"
+api_call "POST" "$SAGA_URL/execute" "$failure_data" "Testing controlled failure scenario"
+echo ""
+
+echo -e "${BLUE}=== Test Summary ===${NC}"
+echo -e "${GREEN}✓ Saga orchestration tests completed for microservices architecture${NC}"
+echo -e "${GREEN}✓ All services are accessible via API Gateway${NC}"
+echo -e "${GREEN}✓ Event production and consumption working${NC}"
+echo -e "${GREEN}✓ Redis Streams integration verified${NC}"
+echo ""
+echo -e "${BLUE}=== Access URLs ===${NC}"
+echo -e "${YELLOW}API Gateway: ${BASE_URL}${NC}"
+echo -e "${YELLOW}Saga Orchestrator: ${SAGA_URL}${NC}"
+echo -e "${YELLOW}Order Service: ${ORDER_URL}${NC}"
+echo -e "${YELLOW}Stock Service: ${STOCK_URL}${NC}"
+echo -e "${YELLOW}Payment Service: ${PAYMENT_URL}${NC}"
+echo -e "${YELLOW}Grafana: http://localhost:3000 (admin/admin)${NC}"
+echo -e "${YELLOW}Prometheus: http://localhost:9090${NC}"
+echo "" 

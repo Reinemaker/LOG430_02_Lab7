@@ -12,7 +12,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    options.InstanceName = "StockService_";
+    options.InstanceName = "PaymentService_";
 });
 
 // Configure Redis connection multiplexer
@@ -23,10 +23,10 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
 });
 
 // Register saga participant
-builder.Services.AddScoped<ISagaParticipant, StockSagaParticipant>();
+builder.Services.AddScoped<ISagaParticipant, PaymentSagaParticipant>();
 
 // Register event producer
-builder.Services.AddSingleton<IEventProducer, StockService.Services.EventProducer>();
+builder.Services.AddSingleton<IEventProducer, PaymentService.Services.EventProducer>();
 
 // Add HTTP client for inter-service communication
 builder.Services.AddHttpClient();

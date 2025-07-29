@@ -2,18 +2,18 @@ using Microsoft.AspNetCore.Mvc;
 using CornerShop.Shared.Interfaces;
 using CornerShop.Shared.Models;
 
-namespace StockService.Controllers;
+namespace PaymentService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class StockController : ControllerBase
+public class PaymentsController : ControllerBase
 {
-    private readonly ILogger<StockController> _logger;
+    private readonly ILogger<PaymentsController> _logger;
     private readonly ISagaParticipant _sagaParticipant;
     private readonly IEventProducer _eventProducer;
 
-    public StockController(
-        ILogger<StockController> logger,
+    public PaymentsController(
+        ILogger<PaymentsController> logger,
         ISagaParticipant sagaParticipant,
         IEventProducer eventProducer)
     {
@@ -23,15 +23,15 @@ public class StockController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<string> GetStock()
+    public ActionResult<string> GetPayments()
     {
-        return Ok("Stock Service - Saga Participant Implementation");
+        return Ok("Payment Service - Saga Participant Implementation");
     }
 
     [HttpGet("health")]
     public ActionResult<string> Health()
     {
-        return Ok("Stock Service is healthy");
+        return Ok("Payment Service is healthy");
     }
 
     [HttpPost("saga/participate")]
@@ -85,7 +85,7 @@ public class StockController : ControllerBase
         {
             ServiceName = _sagaParticipant.ServiceName,
             SupportedSteps = _sagaParticipant.SupportedSteps,
-            Description = "Stock Service handles stock verification and reservation for order processing"
+            Description = "Payment Service handles payment processing for order completion"
         });
     }
 
@@ -103,4 +103,60 @@ public class StockController : ControllerBase
             return StatusCode(500, "Error retrieving event statistics");
         }
     }
+
+    [HttpPost("process")]
+    public async Task<ActionResult<object>> ProcessPayment([FromBody] PaymentRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Processing payment for customer {CustomerId} amount {Amount}", 
+                request.CustomerId, request.Amount);
+
+            var sagaRequest = new SagaParticipantRequest
+            {
+                StepName = "ProcessPayment",
+                CorrelationId = Guid.NewGuid().ToString(),
+                Data = new Dictionary<string, object>
+                {
+                    ["customerId"] = request.CustomerId,
+                    ["amount"] = request.Amount,
+                    ["paymentMethod"] = request.PaymentMethod
+                }
+            };
+
+            var response = await _sagaParticipant.ExecuteStepAsync(sagaRequest);
+            
+            if (response.Success)
+            {
+                return Ok(new
+                {
+                    Success = true,
+                    TransactionId = response.Data?.GetType().GetProperty("TransactionId")?.GetValue(response.Data),
+                    Amount = request.Amount,
+                    Message = "Payment processed successfully"
+                });
+            }
+            else
+            {
+                return BadRequest(new
+                {
+                    Success = false,
+                    Error = response.ErrorMessage,
+                    Message = "Payment processing failed"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing payment");
+            return StatusCode(500, "Internal server error during payment processing");
+        }
+    }
+}
+
+public class PaymentRequest
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string PaymentMethod { get; set; } = "CreditCard";
 } 

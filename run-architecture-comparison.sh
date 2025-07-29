@@ -14,7 +14,6 @@ PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
-DIRECT_BASE_URL=${DIRECT_BASE_URL:-"http://cornershop.localhost"}
 GATEWAY_BASE_URL=${GATEWAY_BASE_URL:-"http://api.cornershop.localhost"}
 API_KEY=${API_KEY:-"cornershop-api-key-2024"}
 OUTPUT_DIR="./comparison-results"

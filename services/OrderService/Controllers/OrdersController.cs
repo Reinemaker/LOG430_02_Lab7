@@ -9,11 +9,13 @@ namespace OrderService.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
+    private readonly ISagaParticipant _sagaParticipant;
     private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
+    public OrdersController(IOrderService orderService, ISagaParticipant sagaParticipant, ILogger<OrdersController> logger)
     {
         _orderService = orderService;
+        _sagaParticipant = sagaParticipant;
         _logger = logger;
     }
 
@@ -125,7 +127,7 @@ public class OrdersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving orders by date range");
+            _logger.LogError(ex, "Error retrieving orders by date range {StartDate} to {EndDate}", startDate, endDate);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -135,17 +137,6 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var isValid = await _orderService.ValidateOrderAsync(order);
-            if (!isValid)
-            {
-                return BadRequest("Invalid order data");
-            }
-
             var createdOrder = await _orderService.CreateOrderAsync(order);
             return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, createdOrder);
         }
@@ -161,18 +152,19 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            if (!ModelState.IsValid)
+            var order = new Order
             {
-                return BadRequest(ModelState);
-            }
+                CustomerId = request.CustomerId,
+                StoreId = request.StoreId,
+                PaymentMethod = request.PaymentMethod,
+                ShippingAddress = request.ShippingAddress,
+                Status = OrderStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
 
-            var order = await _orderService.ProcessCheckoutAsync(
-                request.CustomerId, 
-                request.StoreId, 
-                request.PaymentMethod, 
-                request.ShippingAddress);
-
-            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+            var createdOrder = await _orderService.CreateOrderAsync(order);
+            return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, createdOrder);
         }
         catch (Exception ex)
         {
@@ -186,16 +178,16 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            var order = await _orderService.UpdateOrderStatusAsync(id, status);
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
+            var updatedOrder = await _orderService.UpdateOrderStatusAsync(id, status);
+            if (updatedOrder == null)
+            {
+                return NotFound();
+            }
+            return Ok(updatedOrder);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating order status {OrderId}", id);
+            _logger.LogError(ex, "Error updating order status {OrderId} to {Status}", id, status);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -205,16 +197,16 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            var order = await _orderService.UpdatePaymentStatusAsync(id, status);
-            return Ok(order);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
+            var updatedOrder = await _orderService.UpdatePaymentStatusAsync(id, status);
+            if (updatedOrder == null)
+            {
+                return NotFound();
+            }
+            return Ok(updatedOrder);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating payment status {OrderId}", id);
+            _logger.LogError(ex, "Error updating payment status {OrderId} to {Status}", id, status);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -229,7 +221,6 @@ public class OrdersController : ControllerBase
             {
                 return NotFound();
             }
-
             return NoContent();
         }
         catch (Exception ex)
@@ -249,13 +240,178 @@ public class OrdersController : ControllerBase
             {
                 return NotFound();
             }
-
             return NoContent();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting order {OrderId}", id);
             return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // Saga Participation Endpoints
+
+    /// <summary>
+    /// Participate in saga orchestration
+    /// </summary>
+    [HttpPost("saga/participate")]
+    [ProducesResponseType(typeof(SagaParticipantResponse), 200)]
+    [ProducesResponseType(typeof(object), 400)]
+    public async Task<IActionResult> ParticipateInSaga([FromBody] SagaParticipantRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Received saga participation request: {SagaId} | {StepName} | {OrderId}", 
+                request.SagaId, request.StepName, request.OrderId);
+
+            var response = await _sagaParticipant.ExecuteStepAsync(request);
+
+            return Ok(new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 200,
+                data = response,
+                links = new
+                {
+                    self = Url.Action(nameof(ParticipateInSaga), "Orders", null, Request.Scheme),
+                    compensate = Url.Action(nameof(CompensateSagaStep), "Orders", new { sagaId = request.SagaId, stepName = request.StepName }, Request.Scheme)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Saga participation failed: {SagaId} | {StepName}", request.SagaId, request.StepName);
+            return StatusCode(500, new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 500,
+                error = "Internal Server Error",
+                message = ex.Message,
+                path = Request.Path
+            });
+        }
+    }
+
+    /// <summary>
+    /// Compensate a saga step
+    /// </summary>
+    [HttpPost("saga/compensate")]
+    [ProducesResponseType(typeof(SagaCompensationResponse), 200)]
+    [ProducesResponseType(typeof(object), 400)]
+    public async Task<IActionResult> CompensateSagaStep([FromBody] SagaCompensationRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Received saga compensation request: {SagaId} | {StepName} | Reason: {Reason}", 
+                request.SagaId, request.StepName, request.Reason);
+
+            var response = await _sagaParticipant.CompensateStepAsync(request);
+
+            return Ok(new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 200,
+                data = response,
+                links = new
+                {
+                    self = Url.Action(nameof(CompensateSagaStep), "Orders", null, Request.Scheme),
+                    participate = Url.Action(nameof(ParticipateInSaga), "Orders", null, Request.Scheme)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Saga compensation failed: {SagaId} | {StepName}", request.SagaId, request.StepName);
+            return StatusCode(500, new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 500,
+                error = "Internal Server Error",
+                message = ex.Message,
+                path = Request.Path
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get saga participant information
+    /// </summary>
+    [HttpGet("saga/info")]
+    [ProducesResponseType(typeof(object), 200)]
+    public async Task<IActionResult> GetSagaInfo()
+    {
+        try
+        {
+            return Ok(new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 200,
+                data = new
+                {
+                    serviceName = _sagaParticipant.ServiceName,
+                    supportedSteps = _sagaParticipant.SupportedSteps,
+                    description = "Order Service - Handles order creation, confirmation, and cancellation"
+                },
+                links = new
+                {
+                    self = Url.Action(nameof(GetSagaInfo), "Orders", null, Request.Scheme),
+                    participate = Url.Action(nameof(ParticipateInSaga), "Orders", null, Request.Scheme),
+                    compensate = Url.Action(nameof(CompensateSagaStep), "Orders", null, Request.Scheme)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get saga info");
+            return StatusCode(500, new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 500,
+                error = "Internal Server Error",
+                message = ex.Message,
+                path = Request.Path
+            });
+        }
+    }
+
+    /// <summary>
+    /// Health check endpoint
+    /// </summary>
+    [HttpGet("health")]
+    [ProducesResponseType(typeof(object), 200)]
+    public async Task<IActionResult> GetHealth()
+    {
+        try
+        {
+            return Ok(new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 200,
+                data = new
+                {
+                    service = "OrderService",
+                    status = "Healthy",
+                    uptime = Environment.TickCount64,
+                    sagaParticipant = _sagaParticipant.ServiceName
+                },
+                links = new
+                {
+                    self = Url.Action(nameof(GetHealth), "Orders", null, Request.Scheme),
+                    sagaInfo = Url.Action(nameof(GetSagaInfo), "Orders", null, Request.Scheme)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Health check failed");
+            return StatusCode(500, new
+            {
+                timestamp = DateTime.UtcNow,
+                status = 500,
+                error = "Service Unhealthy",
+                message = ex.Message,
+                path = Request.Path
+            });
         }
     }
 }

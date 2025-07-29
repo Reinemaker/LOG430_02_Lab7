@@ -207,12 +207,13 @@ Services communicate via HTTP REST APIs. In a production environment, you might 
 - **Caching**: Redis caching for performance
 - **Database Sharding**: For high-volume data
 
-## Migration from Monolith
+## Architecture Benefits
 
-The original monolithic application (`CornerShop`) has been preserved. The microservices architecture runs alongside it, allowing for:
-- **Gradual Migration**: Move functionality piece by piece
-- **A/B Testing**: Compare monolith vs microservices performance
-- **Rollback**: Easy rollback to monolith if needed
+The microservices architecture provides:
+- **Scalability**: Independent scaling of services
+- **Fault Isolation**: Service failures don't affect others
+- **Technology Diversity**: Different services can use different technologies
+- **Team Autonomy**: Teams can work independently on services
 
 ## Next Steps
 

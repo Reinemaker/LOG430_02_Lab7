@@ -1,7 +1,9 @@
 using CornerShop.Shared.Interfaces;
-using OrderService.Services;
+using CornerShop.Shared.Models;
+using SagaOrchestrator.Services;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using StackExchange.Redis;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    options.InstanceName = "OrderService_";
+    options.InstanceName = "SagaOrchestrator_";
 });
 
 // Configure Redis Connection for Streams
@@ -24,12 +26,20 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     return ConnectionMultiplexer.Connect(configuration);
 });
 
-// Register saga participation services
-builder.Services.AddScoped<ISagaParticipant, OrderSagaParticipant>();
+// Register saga services
+builder.Services.AddScoped<ISagaOrchestrator, SagaOrchestratorService>();
+builder.Services.AddScoped<ISagaStateManager, SagaStateManager>();
 builder.Services.AddSingleton<IEventProducer, EventProducer>();
 
-// Register order services
-builder.Services.AddScoped<IOrderService, OrderService>();
+// Configure HTTP client for microservice communication
+builder.Services.AddHttpClient("Microservices", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Add health checks
+builder.Services.AddHealthChecks()
+    .AddRedis(builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379", name: "redis");
 
 var app = builder.Build();
 
@@ -43,7 +53,14 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 
+// Configure Prometheus metrics
+app.UseMetricServer();
+app.UseHttpMetrics();
+
 // Map controllers
 app.MapControllers();
+
+// Map health checks
+app.MapHealthChecks("/health");
 
 app.Run(); 

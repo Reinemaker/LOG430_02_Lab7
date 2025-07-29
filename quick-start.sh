@@ -66,14 +66,21 @@ install_docker() {
 
 # Function to start services
 start_services() {
-    echo -e "${YELLOW}Starting CornerShop services...${NC}"
+    echo -e "${YELLOW}Starting CornerShop microservices...${NC}"
     
     # Create necessary directories
     mkdir -p letsencrypt
     mkdir -p load-test-results
     
-    # Start services
-    docker-compose up -d
+    # Check if microservices compose file exists
+    if [ -f "docker-compose.microservices.yml" ]; then
+        echo -e "${YELLOW}Starting microservices architecture...${NC}"
+        docker-compose -f docker-compose.microservices.yml up -d --build
+    else
+        echo -e "${RED}❌ docker-compose.microservices.yml not found${NC}"
+        echo -e "${YELLOW}Please ensure you're in the correct directory${NC}"
+        exit 1
+    fi
     
     echo -e "${GREEN}✓ Services started successfully${NC}"
 }
@@ -88,15 +95,15 @@ wait_for_services() {
     while [ $attempt -le $max_attempts ]; do
         echo -e "${YELLOW}Attempt $attempt/$max_attempts - Checking services...${NC}"
         
-        # Check if application is responding
-        if curl -f -s http://cornershop.localhost/health > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ Application is ready${NC}"
+        # Check if API Gateway is responding (microservices architecture)
+        if curl -f -s http://api.cornershop.localhost/health > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ API Gateway is ready${NC}"
             break
         fi
         
         if [ $attempt -eq $max_attempts ]; then
             echo -e "${RED}✗ Services failed to start within expected time${NC}"
-            echo -e "${YELLOW}Check logs with: docker-compose logs${NC}"
+            echo -e "${YELLOW}Check logs with: docker-compose -f docker-compose.microservices.yml logs${NC}"
             exit 1
         fi
         
@@ -110,14 +117,24 @@ wait_for_services() {
 show_access_info() {
     echo ""
     echo -e "${BLUE}=== Access Information ===${NC}"
-    echo -e "${GREEN}Application:${NC} http://cornershop.localhost"
+    
+    echo -e "${GREEN}🌐 Microservices Architecture:${NC}"
+    echo -e "${GREEN}API Gateway:${NC} http://api.cornershop.localhost"
+    echo -e "${GREEN}Product Service:${NC} http://product.cornershop.localhost"
+    echo -e "${GREEN}Customer Service:${NC} http://customer.cornershop.localhost"
+    echo -e "${GREEN}Cart Service:${NC} http://cart.cornershop.localhost"
+    echo -e "${GREEN}Order Service:${NC} http://order.cornershop.localhost"
+    echo ""
+    echo -e "${BLUE}=== Health Checks ===${NC}"
+    echo -e "${YELLOW}API Gateway Health:${NC} http://api.cornershop.localhost/health"
+    echo -e "${YELLOW}Product Service Health:${NC} http://product.cornershop.localhost/health"
+    echo -e "${YELLOW}Customer Service Health:${NC} http://customer.cornershop.localhost/health"
+    echo -e "${YELLOW}Cart Service Health:${NC} http://cart.cornershop.localhost/health"
+    echo -e "${YELLOW}Order Service Health:${NC} http://order.cornershop.localhost/health"
+    echo ""
     echo -e "${GREEN}Traefik Dashboard:${NC} http://traefik.localhost:8080"
     echo -e "${GREEN}Grafana Dashboard:${NC} http://localhost:3000 (admin/admin)"
     echo -e "${GREEN}Prometheus:${NC} http://localhost:9090"
-    echo ""
-    echo -e "${BLUE}=== Health Check ===${NC}"
-    echo -e "${YELLOW}Application Health:${NC} http://cornershop.localhost/health"
-    echo -e "${YELLOW}API Documentation:${NC} http://cornershop.localhost/api-docs"
     echo ""
 }
 
@@ -138,7 +155,7 @@ export const options = {
   duration: '30s',
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://cornershop.localhost';
+const BASE_URL = __ENV.BASE_URL || 'http://api.cornershop.localhost';
 
 export default function() {
   const response = http.get(`${BASE_URL}/health`);
@@ -150,7 +167,7 @@ export default function() {
 }
 EOF
         
-        k6 run --env BASE_URL="http://cornershop.localhost" /tmp/quick-test.js
+        k6 run --env BASE_URL="http://api.cornershop.localhost" /tmp/quick-test.js
         rm -f /tmp/quick-test.js
         
         echo -e "${GREEN}✓ Initial load test completed${NC}"
@@ -176,10 +193,10 @@ show_next_steps() {
     echo -e "   ${YELLOW}Check Traefik: http://traefik.localhost:8080${NC}"
     echo ""
     echo -e "${GREEN}4.${NC} View logs:"
-    echo -e "   ${YELLOW}docker-compose logs -f${NC}"
+    echo -e "   ${YELLOW}docker-compose -f docker-compose.microservices.yml logs -f${NC}"
     echo ""
     echo -e "${GREEN}5.${NC} Stop services:"
-    echo -e "   ${YELLOW}docker-compose down${NC}"
+    echo -e "   ${YELLOW}docker-compose -f docker-compose.microservices.yml down${NC}"
     echo ""
 }
 
@@ -189,8 +206,8 @@ main() {
     echo ""
     
     # Check if we're in the right directory
-    if [ ! -f "docker-compose.yml" ]; then
-        echo -e "${RED}✗ docker-compose.yml not found${NC}"
+    if [ ! -f "docker-compose.microservices.yml" ]; then
+        echo -e "${RED}✗ docker-compose.microservices.yml not found${NC}"
         echo -e "${YELLOW}Please run this script from the CornerShop project directory${NC}"
         exit 1
     fi

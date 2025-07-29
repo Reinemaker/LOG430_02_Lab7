@@ -19,6 +19,30 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 10s
 
+  # Saga Orchestrator metrics
+  - job_name: 'saga-orchestrator'
+    static_configs:
+      - targets: ['saga-orchestrator:80']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Microservices metrics
+  - job_name: 'microservices'
+    static_configs:
+      - targets: 
+        - 'order-service:80'
+        - 'stock-service:80'
+        - 'payment-service:80'
+        - 'customer-service:80'
+        - 'cart-service-1:80'
+        - 'cart-service-2:80'
+        - 'cart-service-3:80'
+        - 'product-service:80'
+        - 'sales-service:80'
+        - 'reporting-service:80'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
   # Traefik metrics
   - job_name: 'traefik'
     static_configs:

@@ -29,7 +29,6 @@ export const options = {
 };
 
 // Configuration
-const DIRECT_BASE_URL = __ENV.DIRECT_BASE_URL || 'http://cornershop.localhost';
 const GATEWAY_BASE_URL = __ENV.GATEWAY_BASE_URL || 'http://api.cornershop.localhost';
 const API_KEY = __ENV.API_KEY || 'cornershop-api-key-2024';
 
@@ -46,58 +45,10 @@ const testCustomers = [
 ];
 
 export default function() {
-  // Test direct API calls (old architecture)
-  group('Direct API Calls (Old Architecture)', function() {
-    // Test products endpoint
-    const directProductsResponse = http.get(`${DIRECT_BASE_URL}/api/products`);
-    directApiLatency.add(directProductsResponse.timings.duration);
-    
-    check(directProductsResponse, {
-      'direct products status is 200': (r) => r.status === 200,
-      'direct products response time < 2s': (r) => r.timings.duration < 2000,
-    });
-    
-    if (directProductsResponse.status === 200) {
-      directApiSuccess.add(1);
-    } else {
-      directApiErrors.add(1);
-    }
-    
-    // Test customers endpoint
-    const directCustomersResponse = http.get(`${DIRECT_BASE_URL}/api/customers`);
-    directApiLatency.add(directCustomersResponse.timings.duration);
-    
-    check(directCustomersResponse, {
-      'direct customers status is 200': (r) => r.status === 200,
-      'direct customers response time < 2s': (r) => r.timings.duration < 2000,
-    });
-    
-    if (directCustomersResponse.status === 200) {
-      directApiSuccess.add(1);
-    } else {
-      directApiErrors.add(1);
-    }
-    
-    // Test cart endpoint
-    const directCartResponse = http.get(`${DIRECT_BASE_URL}/api/cart?customerId=1`);
-    directApiLatency.add(directCartResponse.timings.duration);
-    
-    check(directCartResponse, {
-      'direct cart status is 200': (r) => r.status === 200,
-      'direct cart response time < 2s': (r) => r.timings.duration < 2000,
-    });
-    
-    if (directCartResponse.status === 200) {
-      directApiSuccess.add(1);
-    } else {
-      directApiErrors.add(1);
-    }
-  });
-  
   sleep(0.5);
   
-  // Test API Gateway calls (new architecture)
-  group('API Gateway Calls (New Architecture)', function() {
+  // Test API Gateway calls
+  group('API Gateway Calls', function() {
     // Test products endpoint via gateway
     const gatewayProductsResponse = http.get(`${GATEWAY_BASE_URL}/api/products`, {
       headers: {

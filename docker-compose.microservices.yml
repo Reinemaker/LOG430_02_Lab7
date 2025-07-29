@@ -134,6 +134,20 @@ services:
       - redis
     # No Traefik labels for /api/*
 
+  # Payment Management Service
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/PaymentService/Dockerfile
+    container_name: payment-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - redis
+    # No Traefik labels for /api/*
+
   # Reporting Service
   reporting-service:
     build:
@@ -149,20 +163,34 @@ services:
       - mongodb
     # No Traefik labels for /api/*
 
+  # Saga Orchestrator Service
+  saga-orchestrator:
+    build:
+      context: .
+      dockerfile: services/SagaOrchestrator/Dockerfile
+    container_name: saga-orchestrator
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - redis
+      - stock-service
+      - payment-service
+      - order-service
+    # No Traefik labels for /api/*
+
   # Shared Stock Service
   stock-service:
     build:
-      context: ./services/StockService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/StockService/Dockerfile
     container_name: stock-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:80
-      - MongoDB__ConnectionString=mongodb://mongodb:27017
-      - MongoDB__DatabaseName=cornerShop
       - ConnectionStrings__Redis=redis:6379
     depends_on:
-      - mongodb
       - redis
     # No Traefik labels for /api/*
 

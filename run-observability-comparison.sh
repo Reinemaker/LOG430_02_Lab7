@@ -139,19 +139,11 @@ wait_for_services() {
 run_comparison_test() {
     echo -e "${BLUE}Running architecture comparison test...${NC}"
     
-    # Check if old architecture is available
-    if curl -f -s "http://cornershop.localhost" > /dev/null 2>&1; then
-        # Run the comparison test
-        ./run-architecture-comparison.sh
-        echo -e "${GREEN}✓ Architecture comparison completed${NC}"
-    else
-        echo -e "${YELLOW}⚠ Old architecture not available, running microservices-only tests${NC}"
-        
-        # Run microservices load tests instead
-        ./run-load-tests.sh
-        
-        echo -e "${GREEN}✓ Microservices load tests completed${NC}"
-    fi
+    # Run microservices load tests
+    echo -e "${YELLOW}Running microservices load tests${NC}"
+    ./run-load-tests.sh
+    
+    echo -e "${GREEN}✓ Microservices load tests completed${NC}"
     
     echo ""
 }

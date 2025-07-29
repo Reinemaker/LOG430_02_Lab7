@@ -14,6 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 BASE_URL=${BASE_URL:-"http://api.cornershop.localhost"}
+ARCHITECTURE="microservices"
 AUTH_TOKEN=${AUTH_TOKEN:-""}
 OUTPUT_DIR="./load-test-results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -22,6 +23,7 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 mkdir -p "$OUTPUT_DIR"
 
 echo -e "${BLUE}=== CornerShop Load Testing Suite ===${NC}"
+echo -e "${YELLOW}Architecture: ${ARCHITECTURE}${NC}"
 echo -e "${YELLOW}Base URL: ${BASE_URL}${NC}"
 echo -e "${YELLOW}Output Directory: ${OUTPUT_DIR}${NC}"
 echo -e "${YELLOW}Timestamp: ${TIMESTAMP}${NC}"
@@ -51,13 +53,24 @@ check_services() {
     echo -e "${BLUE}Checking service availability...${NC}"
     
     # Check if the application is responding
-    if curl -f -s "$BASE_URL/api/products" > /dev/null; then
+    if curl -f -s "$BASE_URL/health" > /dev/null; then
         echo -e "${GREEN}✓ Application is healthy${NC}"
     else
         echo -e "${RED}✗ Application is not responding${NC}"
         echo -e "${YELLOW}Make sure the application is running and accessible at ${BASE_URL}${NC}"
         exit 1
     fi
+    
+    # Check individual microservices
+    echo -e "${BLUE}Checking microservices...${NC}"
+    services=("product" "customer" "cart" "order")
+    for service in "${services[@]}"; do
+        if curl -f -s "http://${service}.cornershop.localhost/health" > /dev/null; then
+            echo -e "${GREEN}✓ ${service}-service is healthy${NC}"
+        else
+            echo -e "${YELLOW}⚠ ${service}-service not accessible${NC}"
+        fi
+    done
     
     # Check if Traefik dashboard is accessible
     if curl -f -s "http://traefik.localhost:8080" > /dev/null; then
@@ -79,6 +92,7 @@ check_services() {
 # Function to display test results summary
 show_summary() {
     echo -e "${BLUE}=== Test Results Summary ===${NC}"
+    echo -e "${YELLOW}Architecture: ${ARCHITECTURE}${NC}"
     echo -e "${YELLOW}Results saved in: ${OUTPUT_DIR}${NC}"
     echo ""
     
@@ -90,7 +104,11 @@ show_summary() {
     
     echo ""
     echo -e "${BLUE}=== Access URLs ===${NC}"
-    echo -e "${YELLOW}Application: ${BASE_URL}${NC}"
+    echo -e "${YELLOW}API Gateway: ${BASE_URL}${NC}"
+    echo -e "${YELLOW}Product Service: http://product.cornershop.localhost${NC}"
+    echo -e "${YELLOW}Customer Service: http://customer.cornershop.localhost${NC}"
+    echo -e "${YELLOW}Cart Service: http://cart.cornershop.localhost${NC}"
+    echo -e "${YELLOW}Order Service: http://order.cornershop.localhost${NC}"
     echo -e "${YELLOW}Traefik Dashboard: http://traefik.localhost:8080${NC}"
     echo -e "${YELLOW}Grafana Dashboard: http://localhost:3000 (admin/admin)${NC}"
     echo -e "${YELLOW}Prometheus: http://localhost:9090${NC}"
@@ -124,10 +142,10 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://cornershop.localhost';
+const BASE_URL = __ENV.BASE_URL || 'http://api.cornershop.localhost';
 
 export default function() {
-  const response = http.get(`${BASE_URL}/api/v1/products`);
+  const response = http.get(`${BASE_URL}/api/products`);
   
   check(response, {
     'status is 200': (r) => r.status === 200,
@@ -165,10 +183,10 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://cornershop.localhost';
+const BASE_URL = __ENV.BASE_URL || 'http://api.cornershop.localhost';
 
 export default function() {
-  const response = http.get(`${BASE_URL}/api/v1/products`);
+  const response = http.get(`${BASE_URL}/api/products`);
   
   check(response, {
     'status is 200': (r) => r.status === 200,
@@ -240,7 +258,7 @@ case "$1" in
         echo "  --help, -h           Show this help message"
         echo ""
         echo "Environment variables:"
-        echo "  BASE_URL             Base URL for the application (default: http://cornershop.localhost)"
+        echo "  BASE_URL             Base URL for the application (default: http://api.cornershop.localhost)"
         echo "  AUTH_TOKEN           JWT token for authentication (optional)"
         echo ""
         ;;

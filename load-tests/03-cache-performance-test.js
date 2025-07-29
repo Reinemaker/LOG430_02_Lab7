@@ -27,7 +27,7 @@ export const options = {
 };
 
 // Test data
-const BASE_URL = __ENV.BASE_URL || 'http://cornershop.localhost';
+const BASE_URL = __ENV.BASE_URL || 'http://api.cornershop.localhost';
 const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
 
 // Helper function to get headers
