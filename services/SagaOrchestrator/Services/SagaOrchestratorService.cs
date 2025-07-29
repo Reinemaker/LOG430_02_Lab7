@@ -1,437 +1,265 @@
+using Confluent.Kafka;
+using CornerShop.Shared.Events;
 using CornerShop.Shared.Interfaces;
 using CornerShop.Shared.Models;
+using MongoDB.Driver;
 using System.Text.Json;
-using Prometheus;
 
-namespace SagaOrchestrator.Services
+namespace SagaOrchestrator.Services;
+
+public interface ISagaOrchestratorService
 {
-    /// <summary>
-    /// Saga Orchestrator Service - Coordinates distributed saga execution
-    /// </summary>
-    public class SagaOrchestratorService : ISagaOrchestrator
+    Task StartOrderSagaAsync(string orderId, string customerId, decimal totalAmount, List<OrderItem> items);
+    Task HandleSagaStepCompletedAsync(string sagaId, string stepName, int stepNumber, object stepData);
+    Task HandleSagaStepFailedAsync(string sagaId, string stepName, int stepNumber, string errorMessage, object stepData);
+    Task HandleSagaCompensationCompletedAsync(string sagaId, string stepName, int stepNumber);
+    Task<SagaState?> GetSagaStateAsync(string sagaId);
+    Task<List<SagaState>> GetSagaStatesByOrderIdAsync(string orderId);
+}
+
+public class SagaOrchestratorService : ISagaOrchestratorService
+{
+    private readonly IMongoCollection<SagaState> _sagaStates;
+    private readonly IEventPublisher _eventPublisher;
+    private readonly ILogger<SagaOrchestratorService> _logger;
+
+    public SagaOrchestratorService(IMongoDatabase database, IEventPublisher eventPublisher, ILogger<SagaOrchestratorService> logger)
     {
-        private readonly ISagaStateManager _stateManager;
-        private readonly IEventProducer _eventProducer;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<SagaOrchestratorService> _logger;
-        private readonly Dictionary<string, string> _serviceEndpoints;
+        _sagaStates = database.GetCollection<SagaState>("sagaStates");
+        _eventPublisher = eventPublisher;
+        _logger = logger;
+        
+        CreateIndexes();
+    }
 
-        // Prometheus metrics
-        private static readonly Counter SagaExecutionsTotal = Metrics.CreateCounter("saga_executions_total", "Total number of saga executions", new CounterConfiguration
+    private void CreateIndexes()
+    {
+        var sagaIdIndex = Builders<SagaState>.IndexKeys.Ascending(s => s.SagaId);
+        var sagaIdIndexModel = new CreateIndexModel<SagaState>(sagaIdIndex, new CreateIndexOptions { Name = "SagaId", Unique = true });
+        _sagaStates.Indexes.CreateOne(sagaIdIndexModel);
+
+        var orderIdIndex = Builders<SagaState>.IndexKeys.Ascending(s => s.OrderId);
+        var orderIdIndexModel = new CreateIndexModel<SagaState>(orderIdIndex, new CreateIndexOptions { Name = "OrderId" });
+        _sagaStates.Indexes.CreateOne(orderIdIndexModel);
+
+        var statusIndex = Builders<SagaState>.IndexKeys.Ascending(s => s.Status);
+        var statusIndexModel = new CreateIndexModel<SagaState>(statusIndex, new CreateIndexOptions { Name = "Status" });
+        _sagaStates.Indexes.CreateOne(statusIndexModel);
+    }
+
+    public async Task StartOrderSagaAsync(string orderId, string customerId, decimal totalAmount, List<OrderItem> items)
+    {
+        var sagaId = Guid.NewGuid().ToString();
+        
+        _logger.LogInformation("Starting Order Saga: {SagaId} for Order: {OrderId}", sagaId, orderId);
+
+        // Create saga state
+        var sagaState = new SagaState
         {
-            LabelNames = new[] { "saga_type", "result" }
-        });
-
-        private static readonly Histogram SagaExecutionDuration = Metrics.CreateHistogram("saga_execution_duration_seconds", "Saga execution duration in seconds", new HistogramConfiguration
-        {
-            LabelNames = new[] { "saga_type" },
-            Buckets = new[] { 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0 }
-        });
-
-        private static readonly Counter SagaStepExecutionsTotal = Metrics.CreateCounter("saga_step_executions_total", "Total number of saga step executions", new CounterConfiguration
-        {
-            LabelNames = new[] { "step_name", "service_name", "result" }
-        });
-
-        private static readonly Histogram SagaStepExecutionDuration = Metrics.CreateHistogram("saga_step_execution_duration_seconds", "Saga step execution duration in seconds", new HistogramConfiguration
-        {
-            LabelNames = new[] { "step_name", "service_name" },
-            Buckets = new[] { 0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0 }
-        });
-
-        private static readonly Counter SagaCompensationsTotal = Metrics.CreateCounter("saga_compensations_total", "Total number of saga compensations", new CounterConfiguration
-        {
-            LabelNames = new[] { "saga_type", "reason" }
-        });
-
-        public SagaOrchestratorService(
-            ISagaStateManager stateManager,
-            IEventProducer eventProducer,
-            IHttpClientFactory httpClientFactory,
-            ILogger<SagaOrchestratorService> logger)
-        {
-            _stateManager = stateManager;
-            _eventProducer = eventProducer;
-            _httpClientFactory = httpClientFactory;
-            _logger = logger;
-
-            // Configure microservice endpoints
-            _serviceEndpoints = new Dictionary<string, string>
+            SagaId = sagaId,
+            OrderId = orderId,
+            CustomerId = customerId,
+            Status = SagaStatus.Started,
+            CurrentStep = 1,
+            TotalSteps = 5,
+            StartedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Steps = new List<SagaStep>
             {
-                { "StockService", "http://stock-service:80" },
-                { "PaymentService", "http://payment-service:80" },
-                { "OrderService", "http://order-service:80" }
-            };
+                new SagaStep { StepNumber = 1, StepName = SagaSteps.CreateOrder, Status = SagaStepStatus.Pending, StartedAt = DateTime.UtcNow },
+                new SagaStep { StepNumber = 2, StepName = SagaSteps.ReserveStock, Status = SagaStepStatus.Pending, StartedAt = DateTime.UtcNow },
+                new SagaStep { StepNumber = 3, StepName = SagaSteps.ProcessPayment, Status = SagaStepStatus.Pending, StartedAt = DateTime.UtcNow },
+                new SagaStep { StepNumber = 4, StepName = SagaSteps.ConfirmOrder, Status = SagaStepStatus.Pending, StartedAt = DateTime.UtcNow },
+                new SagaStep { StepNumber = 5, StepName = SagaSteps.SendNotifications, Status = SagaStepStatus.Pending, StartedAt = DateTime.UtcNow }
+            }
+        };
+
+        await _sagaStates.InsertOneAsync(sagaState);
+
+        // Publish saga started event
+        var sagaStartedEvent = new OrderSagaStartedEvent(sagaId, orderId, customerId, totalAmount, items);
+        await _eventPublisher.PublishAsync(sagaStartedEvent, "sagas.events");
+
+        _logger.LogInformation("Order Saga started successfully: {SagaId}", sagaId);
+    }
+
+    public async Task HandleSagaStepCompletedAsync(string sagaId, string stepName, int stepNumber, object stepData)
+    {
+        _logger.LogInformation("Saga step completed: {SagaId} - {StepName} ({StepNumber})", sagaId, stepName, stepNumber);
+
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        var update = Builders<SagaState>.Update
+            .Set(s => s.CurrentStep, stepNumber + 1)
+            .Set(s => s.UpdatedAt, DateTime.UtcNow)
+            .Set($"steps.{stepNumber - 1}.status", SagaStepStatus.Completed)
+            .Set($"steps.{stepNumber - 1}.completedAt", DateTime.UtcNow)
+            .Set($"steps.{stepNumber - 1}.stepData", stepData);
+
+        await _sagaStates.UpdateOneAsync(filter, update);
+
+        // Publish step completed event
+        var stepCompletedEvent = new OrderSagaStepCompletedEvent(sagaId, stepName, stepNumber, stepData);
+        await _eventPublisher.PublishAsync(stepCompletedEvent, "sagas.events");
+
+        // Check if saga is completed
+        if (stepNumber == 5) // Last step
+        {
+            await CompleteSagaAsync(sagaId);
         }
-
-        public async Task<SagaOrchestrationResponse> ExecuteSagaAsync(SagaOrchestrationRequest request)
+        else
         {
-            var sagaId = request.SagaId;
-            var correlationId = request.CorrelationId ?? Guid.NewGuid().ToString();
-            var startTime = DateTime.UtcNow;
-
-            _logger.LogInformation("Starting saga execution: {SagaId} | {SagaType} | {OrderId}", 
-                sagaId, request.SagaType, request.OrderId);
-
-            try
-            {
-                // Create saga state
-                await _stateManager.CreateSagaAsync(request.SagaType, request.OrderId, correlationId);
-
-                // Publish saga started event
-                var sagaStartedEvent = new SagaStartedEvent
-                {
-                    SagaId = sagaId,
-                    SagaType = request.SagaType,
-                    OrderId = request.OrderId,
-                    CorrelationId = correlationId
-                };
-                await _eventProducer.PublishSagaEventAsync(sagaStartedEvent, correlationId);
-
-                // Define saga steps
-                var steps = new List<SagaStep>
-                {
-                    new SagaStep { StepName = "VerifyStock", ServiceName = "StockService", Status = "Pending" },
-                    new SagaStep { StepName = "ReserveStock", ServiceName = "StockService", Status = "Pending", CompensationRequired = true },
-                    new SagaStep { StepName = "ProcessPayment", ServiceName = "PaymentService", Status = "Pending", CompensationRequired = true },
-                    new SagaStep { StepName = "ConfirmOrder", ServiceName = "OrderService", Status = "Pending" }
-                };
-
-                var response = new SagaOrchestrationResponse
-                {
-                    SagaId = sagaId,
-                    OrderId = request.OrderId,
-                    Status = "InProgress",
-                    CurrentState = SagaState.Started,
-                    Steps = steps,
-                    StartedAt = DateTime.UtcNow
-                };
-
-                // Execute saga steps
-                await ExecuteSagaStepsAsync(request, steps, correlationId);
-
-                // Update final state
-                response.Status = "Success";
-                response.CurrentState = SagaState.Completed;
-                response.CompletedAt = DateTime.UtcNow;
-
-                await _stateManager.CompleteSagaAsync(sagaId, "Success");
-
-                // Publish saga completed event
-                var sagaCompletedEvent = new SagaCompletedEvent
-                {
-                    SagaId = sagaId,
-                    SagaType = request.SagaType,
-                    Result = "Success",
-                    CorrelationId = correlationId
-                };
-                await _eventProducer.PublishSagaEventAsync(sagaCompletedEvent, correlationId);
-
-                // Record metrics
-                var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                SagaExecutionsTotal.WithLabels(request.SagaType, "success").Inc();
-                SagaExecutionDuration.WithLabels(request.SagaType).Observe(duration);
-
-                _logger.LogInformation("Saga completed successfully: {SagaId} | Duration: {Duration}", 
-                    sagaId, response.Duration);
-
-                return response;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Saga execution failed: {SagaId}", sagaId);
-
-                // Record failure metrics
-                var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                SagaExecutionsTotal.WithLabels(request.SagaType, "failure").Inc();
-                SagaExecutionDuration.WithLabels(request.SagaType).Observe(duration);
-
-                // Update state to failed
-                await _stateManager.UpdateSagaStateAsync(sagaId, SagaState.Failed, "SagaOrchestrator", "ExecuteSaga", SagaEventType.Failure, ex.Message);
-
-                // Attempt compensation
-                await CompensateSagaAsync(sagaId, ex.Message);
-
-                return new SagaOrchestrationResponse
-                {
-                    SagaId = sagaId,
-                    OrderId = request.OrderId,
-                    Status = "Failed",
-                    CurrentState = SagaState.Failed,
-                    ErrorMessage = ex.Message,
-                    StartedAt = DateTime.UtcNow,
-                    CompletedAt = DateTime.UtcNow
-                };
-            }
-        }
-
-        private async Task ExecuteSagaStepsAsync(SagaOrchestrationRequest request, List<SagaStep> steps, string correlationId)
-        {
-            var sagaId = request.SagaId;
-
-            foreach (var step in steps)
-            {
-                try
-                {
-                    _logger.LogInformation("Executing saga step: {SagaId} | {StepName} | {ServiceName}", 
-                        sagaId, step.StepName, step.ServiceName);
-
-                    // Update step status
-                    step.Status = "InProgress";
-                    step.StartedAt = DateTime.UtcNow;
-
-                    // Update saga state
-                    var newState = GetSagaStateForStep(step.StepName);
-                    await _stateManager.UpdateSagaStateAsync(sagaId, newState, step.ServiceName, step.StepName, SagaEventType.Success);
-
-                    // Execute step
-                    var stepRequest = new SagaParticipantRequest
-                    {
-                        SagaId = sagaId,
-                        StepName = step.StepName,
-                        OrderId = request.OrderId,
-                        Data = GetStepData(request, step.StepName),
-                        CorrelationId = correlationId
-                    };
-
-                    var stepStartTime = DateTime.UtcNow;
-                    var stepResponse = await ExecuteStepAsync(step.ServiceName, stepRequest);
-                    var stepDuration = (DateTime.UtcNow - stepStartTime).TotalSeconds;
-
-                    if (stepResponse.Success)
-                    {
-                        step.Status = "Completed";
-                        step.CompletedAt = DateTime.UtcNow;
-                        
-                        // Record step success metrics
-                        SagaStepExecutionsTotal.WithLabels(step.StepName, step.ServiceName, "success").Inc();
-                        SagaStepExecutionDuration.WithLabels(step.StepName, step.ServiceName).Observe(stepDuration);
-                        
-                        _logger.LogInformation("Saga step completed: {SagaId} | {StepName}", sagaId, step.StepName);
-                    }
-                    else
-                    {
-                        step.Status = "Failed";
-                        step.ErrorMessage = stepResponse.ErrorMessage;
-                        step.CompletedAt = DateTime.UtcNow;
-                        
-                        // Record step failure metrics
-                        SagaStepExecutionsTotal.WithLabels(step.StepName, step.ServiceName, "failure").Inc();
-                        SagaStepExecutionDuration.WithLabels(step.StepName, step.ServiceName).Observe(stepDuration);
-                        
-                        throw new Exception($"Step {step.StepName} failed: {stepResponse.ErrorMessage}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    step.Status = "Failed";
-                    step.ErrorMessage = ex.Message;
-                    step.CompletedAt = DateTime.UtcNow;
-
-                    _logger.LogError(ex, "Saga step failed: {SagaId} | {StepName}", sagaId, step.StepName);
-
-                    // Update saga state to failed
-                    await _stateManager.UpdateSagaStateAsync(sagaId, SagaState.Failed, step.ServiceName, step.StepName, SagaEventType.Failure, ex.Message);
-
-                    throw;
-                }
-            }
-        }
-
-        private async Task<SagaParticipantResponse> ExecuteStepAsync(string serviceName, SagaParticipantRequest request)
-        {
-            if (!_serviceEndpoints.ContainsKey(serviceName))
-            {
-                throw new Exception($"Service endpoint not found for: {serviceName}");
-            }
-
-            var endpoint = _serviceEndpoints[serviceName];
-            var client = _httpClientFactory.CreateClient("Microservices");
-
-            try
-            {
-                var json = JsonSerializer.Serialize(request);
-                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-                var response = await client.PostAsync($"{endpoint}/api/saga/participate", content);
-                response.EnsureSuccessStatusCode();
-
-                var responseContent = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<SagaParticipantResponse>(responseContent) ?? new SagaParticipantResponse { Success = false };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to execute step: {ServiceName} | {StepName}", serviceName, request.StepName);
-                return new SagaParticipantResponse
-                {
-                    SagaId = request.SagaId,
-                    StepName = request.StepName,
-                    Success = false,
-                    ErrorMessage = ex.Message
-                };
-            }
-        }
-
-        private object? GetStepData(SagaOrchestrationRequest request, string stepName)
-        {
-            return stepName switch
-            {
-                "VerifyStock" => new { Items = request.Items },
-                "ReserveStock" => new { Items = request.Items },
-                "ProcessPayment" => new { Amount = request.TotalAmount, PaymentMethod = request.PaymentMethod },
-                "ConfirmOrder" => new { OrderId = request.OrderId, CustomerId = request.CustomerId, StoreId = request.StoreId },
-                _ => null
-            };
-        }
-
-        private SagaState GetSagaStateForStep(string stepName)
-        {
-            return stepName switch
-            {
-                "VerifyStock" => SagaState.StockVerifying,
-                "ReserveStock" => SagaState.StockReserving,
-                "ProcessPayment" => SagaState.PaymentProcessing,
-                "ConfirmOrder" => SagaState.OrderConfirming,
-                _ => SagaState.Started
-            };
-        }
-
-        public async Task<SagaOrchestrationResponse> GetSagaStatusAsync(string sagaId)
-        {
-            var state = await _stateManager.GetSagaStateAsync(sagaId);
-            var transitions = await _stateManager.GetSagaTransitionsAsync(sagaId);
-
-            return new SagaOrchestrationResponse
-            {
-                SagaId = sagaId,
-                Status = state.ToString(),
-                CurrentState = state,
-                Steps = new List<SagaStep>(), // Would need to reconstruct from transitions
-                StartedAt = transitions.FirstOrDefault()?.Timestamp ?? DateTime.UtcNow
-            };
-        }
-
-        public async Task<SagaOrchestrationResponse> CompensateSagaAsync(string sagaId, string reason)
-        {
-            _logger.LogInformation("Starting saga compensation: {SagaId} | Reason: {Reason}", sagaId, reason);
-
-            // Record compensation metrics
-            SagaCompensationsTotal.WithLabels("OrderCreation", reason).Inc();
-
-            try
-            {
-                await _stateManager.UpdateSagaStateAsync(sagaId, SagaState.Compensating, "SagaOrchestrator", "CompensateSaga", SagaEventType.Compensation, reason);
-
-                // Get saga transitions to determine which steps need compensation
-                var transitions = await _stateManager.GetSagaTransitionsAsync(sagaId);
-                var compensatedSteps = new List<string>();
-
-                // Compensate steps in reverse order
-                var stepsToCompensate = transitions
-                    .Where(t => t.EventType == SagaEventType.Success)
-                    .OrderByDescending(t => t.Timestamp)
-                    .ToList();
-
-                foreach (var transition in stepsToCompensate)
-                {
-                    try
-                    {
-                        var compensationRequest = new SagaCompensationRequest
-                        {
-                            SagaId = sagaId,
-                            StepName = transition.Action,
-                            OrderId = "", // Would need to extract from data
-                            Reason = reason
-                        };
-
-                        var compensationResponse = await CompensateStepAsync(transition.ServiceName, compensationRequest);
-                        
-                        if (compensationResponse.Success)
-                        {
-                            compensatedSteps.Add(transition.Action);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Compensation failed for step: {SagaId} | {StepName}", sagaId, transition.Action);
-                    }
-                }
-
-                await _stateManager.UpdateSagaStateAsync(sagaId, SagaState.Compensated, "SagaOrchestrator", "CompensateSaga", SagaEventType.Compensation, "Compensation completed");
-
-                // Publish saga compensated event
-                var sagaCompensatedEvent = new SagaCompensatedEvent
-                {
-                    SagaId = sagaId,
-                    SagaType = "OrderCreation",
-                    CompensationReason = reason,
-                    CompensatedSteps = compensatedSteps
-                };
-                await _eventProducer.PublishSagaEventAsync(sagaCompensatedEvent);
-
-                return new SagaOrchestrationResponse
-                {
-                    SagaId = sagaId,
-                    Status = "Compensated",
-                    CurrentState = SagaState.Compensated,
-                    CompletedAt = DateTime.UtcNow
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Saga compensation failed: {SagaId}", sagaId);
-                throw;
-            }
-        }
-
-        private async Task<SagaCompensationResponse> CompensateStepAsync(string serviceName, SagaCompensationRequest request)
-        {
-            if (!_serviceEndpoints.ContainsKey(serviceName))
-            {
-                throw new Exception($"Service endpoint not found for: {serviceName}");
-            }
-
-            var endpoint = _serviceEndpoints[serviceName];
-            var client = _httpClientFactory.CreateClient("Microservices");
-
-            try
-            {
-                var json = JsonSerializer.Serialize(request);
-                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-                var response = await client.PostAsync($"{endpoint}/api/saga/compensate", content);
-                response.EnsureSuccessStatusCode();
-
-                var responseContent = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<SagaCompensationResponse>(responseContent) ?? new SagaCompensationResponse { Success = false };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to compensate step: {ServiceName} | {StepName}", serviceName, request.StepName);
-                return new SagaCompensationResponse
-                {
-                    SagaId = request.SagaId,
-                    StepName = request.StepName,
-                    Success = false,
-                    ErrorMessage = ex.Message
-                };
-            }
-        }
-
-        public async Task<SagaMetrics> GetSagaMetricsAsync()
-        {
-            // This would typically query a metrics store
-            // For now, return basic metrics
-            return new SagaMetrics
-            {
-                TotalSagas = 0,
-                SuccessfulSagas = 0,
-                FailedSagas = 0,
-                CompensatedSagas = 0,
-                AverageDuration = TimeSpan.Zero,
-                SagasByState = new Dictionary<SagaState, int>(),
-                SagasByType = new Dictionary<string, int>()
-            };
+            // Trigger next step
+            await TriggerNextStepAsync(sagaId, stepNumber + 1);
         }
     }
-} 
+
+    public async Task HandleSagaStepFailedAsync(string sagaId, string stepName, int stepNumber, string errorMessage, object stepData)
+    {
+        _logger.LogError("Saga step failed: {SagaId} - {StepName} ({StepNumber}): {ErrorMessage}", sagaId, stepName, stepNumber, errorMessage);
+
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        var update = Builders<SagaState>.Update
+            .Set(s => s.Status, SagaStatus.Compensating)
+            .Set(s => s.FailedStep, stepNumber)
+            .Set(s => s.FailureReason, errorMessage)
+            .Set(s => s.UpdatedAt, DateTime.UtcNow)
+            .Set($"steps.{stepNumber - 1}.status", SagaStepStatus.Failed)
+            .Set($"steps.{stepNumber - 1}.failedAt", DateTime.UtcNow)
+            .Set($"steps.{stepNumber - 1}.errorMessage", errorMessage)
+            .Set($"steps.{stepNumber - 1}.stepData", stepData);
+
+        await _sagaStates.UpdateOneAsync(filter, update);
+
+        // Publish step failed event
+        var stepFailedEvent = new OrderSagaStepFailedEvent(sagaId, stepName, stepNumber, errorMessage, stepData);
+        await _eventPublisher.PublishAsync(stepFailedEvent, "sagas.events");
+
+        // Start compensation
+        await StartCompensationAsync(sagaId, stepNumber);
+    }
+
+    public async Task HandleSagaCompensationCompletedAsync(string sagaId, string stepName, int stepNumber)
+    {
+        _logger.LogInformation("Saga compensation completed: {SagaId} - {StepName} ({StepNumber})", sagaId, stepName, stepNumber);
+
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        var update = Builders<SagaState>.Update
+            .Set($"steps.{stepNumber - 1}.status", SagaStepStatus.Compensated)
+            .Set($"steps.{stepNumber - 1}.compensatedAt", DateTime.UtcNow)
+            .Set(s => s.UpdatedAt, DateTime.UtcNow);
+
+        await _sagaStates.UpdateOneAsync(filter, update);
+
+        // Publish compensation completed event
+        var compensationCompletedEvent = new OrderSagaCompensationCompletedEvent(sagaId, stepName, stepNumber);
+        await _eventPublisher.PublishAsync(compensationCompletedEvent, "sagas.events");
+
+        // Check if all compensations are completed
+        var sagaState = await GetSagaStateAsync(sagaId);
+        if (sagaState != null && sagaState.Steps.All(s => s.Status == SagaStepStatus.Compensated || s.Status == SagaStepStatus.Pending))
+        {
+            await FailSagaAsync(sagaId, sagaState.FailureReason ?? "Unknown error");
+        }
+    }
+
+    public async Task<SagaState?> GetSagaStateAsync(string sagaId)
+    {
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        return await _sagaStates.Find(filter).FirstOrDefaultAsync();
+    }
+
+    public async Task<List<SagaState>> GetSagaStatesByOrderIdAsync(string orderId)
+    {
+        var filter = Builders<SagaState>.Filter.Eq(s => s.OrderId, orderId);
+        return await _sagaStates.Find(filter).ToListAsync();
+    }
+
+    private async Task CompleteSagaAsync(string sagaId)
+    {
+        _logger.LogInformation("Completing Order Saga: {SagaId}", sagaId);
+
+        var sagaState = await GetSagaStateAsync(sagaId);
+        if (sagaState == null) return;
+
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        var update = Builders<SagaState>.Update
+            .Set(s => s.Status, SagaStatus.Completed)
+            .Set(s => s.CompletedAt, DateTime.UtcNow)
+            .Set(s => s.UpdatedAt, DateTime.UtcNow);
+
+        await _sagaStates.UpdateOneAsync(filter, update);
+
+        // Publish saga completed event
+        var sagaCompletedEvent = new OrderSagaCompletedEvent(sagaId, sagaState.OrderId, sagaState.TotalAmount);
+        await _eventPublisher.PublishAsync(sagaCompletedEvent, "sagas.events");
+
+        _logger.LogInformation("Order Saga completed successfully: {SagaId}", sagaId);
+    }
+
+    private async Task FailSagaAsync(string sagaId, string failureReason)
+    {
+        _logger.LogError("Failing Order Saga: {SagaId} - {FailureReason}", sagaId, failureReason);
+
+        var sagaState = await GetSagaStateAsync(sagaId);
+        if (sagaState == null) return;
+
+        var filter = Builders<SagaState>.Filter.Eq(s => s.SagaId, sagaId);
+        var update = Builders<SagaState>.Update
+            .Set(s => s.Status, SagaStatus.Failed)
+            .Set(s => s.FailedAt, DateTime.UtcNow)
+            .Set(s => s.UpdatedAt, DateTime.UtcNow);
+
+        await _sagaStates.UpdateOneAsync(filter, update);
+
+        // Publish saga failed event
+        var sagaFailedEvent = new OrderSagaFailedEvent(sagaId, sagaState.OrderId, failureReason);
+        await _eventPublisher.PublishAsync(sagaFailedEvent, "sagas.events");
+
+        _logger.LogError("Order Saga failed: {SagaId}", sagaId);
+    }
+
+    private async Task StartCompensationAsync(string sagaId, int failedStepNumber)
+    {
+        _logger.LogInformation("Starting compensation for Saga: {SagaId}, failed step: {StepNumber}", sagaId, failedStepNumber);
+
+        // Publish compensation started event
+        var sagaState = await GetSagaStateAsync(sagaId);
+        if (sagaState == null) return;
+
+        var failedStep = sagaState.Steps.FirstOrDefault(s => s.StepNumber == failedStepNumber);
+        if (failedStep == null) return;
+
+        var compensationStartedEvent = new OrderSagaCompensationStartedEvent(sagaId, failedStep.StepName, failedStepNumber);
+        await _eventPublisher.PublishAsync(compensationStartedEvent, "sagas.events");
+
+        // Trigger compensation for all completed steps in reverse order
+        for (int i = failedStepNumber - 1; i >= 1; i--)
+        {
+            var step = sagaState.Steps.FirstOrDefault(s => s.StepNumber == i);
+            if (step?.Status == SagaStepStatus.Completed)
+            {
+                await TriggerCompensationAsync(sagaId, i);
+            }
+        }
+    }
+
+    private async Task TriggerNextStepAsync(string sagaId, int nextStepNumber)
+    {
+        _logger.LogInformation("Triggering next step for Saga: {SagaId}, step: {StepNumber}", sagaId, nextStepNumber);
+
+        // This would trigger the next step in the saga
+        // In a choreographed saga, each service listens for events and triggers the next step
+        // Here we just log the trigger
+        _logger.LogInformation("Next step triggered: {SagaId} - Step {StepNumber}", sagaId, nextStepNumber);
+    }
+
+    private async Task TriggerCompensationAsync(string sagaId, int stepNumber)
+    {
+        _logger.LogInformation("Triggering compensation for Saga: {SagaId}, step: {StepNumber}", sagaId, stepNumber);
+
+        // This would trigger compensation for the specific step
+        // In a choreographed saga, each service listens for compensation events
+        // Here we just log the compensation trigger
+        _logger.LogInformation("Compensation triggered: {SagaId} - Step {StepNumber}", sagaId, stepNumber);
+    }
+}

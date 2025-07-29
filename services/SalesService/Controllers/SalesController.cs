@@ -24,4 +24,4 @@ public class SalesController : ControllerBase
     {
         return Ok("Sales Service is healthy");
     }
-} 
+}

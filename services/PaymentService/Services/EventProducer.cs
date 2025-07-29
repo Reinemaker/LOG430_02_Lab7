@@ -43,7 +43,7 @@ public class EventProducer : IEventProducer
                 _eventCounters[businessEvent.EventType] = _eventCounters.GetValueOrDefault(businessEvent.EventType, 0) + 1;
             }
 
-            _logger.LogInformation("Published event {EventType} with ID {EventId} to topic {Topic}", 
+            _logger.LogInformation("Published event {EventType} with ID {EventId} to topic {Topic}",
                 businessEvent.EventType, businessEvent.EventId, topic);
         }
         catch (Exception ex)
@@ -90,7 +90,7 @@ public class EventProducer : IEventProducer
     public async Task<EventStatistics> GetEventStatisticsAsync()
     {
         var db = _redis.GetDatabase();
-        
+
         var statistics = new EventStatistics
         {
             TotalEvents = 0,
@@ -126,4 +126,4 @@ public class EventProducer : IEventProducer
             _ => EventTopics.BusinessEvents
         };
     }
-} 
+}

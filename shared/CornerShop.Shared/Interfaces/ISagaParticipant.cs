@@ -89,4 +89,4 @@ namespace CornerShop.Shared.Interfaces
         /// </summary>
         Task<List<string>> GetActiveSagasAsync();
     }
-} 
+}

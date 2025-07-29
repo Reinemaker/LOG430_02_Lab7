@@ -2,8 +2,8 @@ services:
   # API Gateway with Nginx (exposed via Traefik)
   api-gateway:
     build:
-      context: ./services/ApiGateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/ApiGateway/Dockerfile
     container_name: api-gateway
     environment:
       - NGINX_HOST=api.cornershop.localhost
@@ -41,8 +41,8 @@ services:
   # Sales Management Service
   sales-service:
     build:
-      context: ./services/SalesService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/SalesService/Dockerfile
     container_name: sales-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -151,8 +151,8 @@ services:
   # Reporting Service
   reporting-service:
     build:
-      context: ./services/ReportingService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/ReportingService/Dockerfile
     container_name: reporting-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -180,6 +180,24 @@ services:
       - order-service
     # No Traefik labels for /api/*
 
+  # Choreographed Saga Coordinator Service
+  choreographed-saga-coordinator:
+    build:
+      context: .
+      dockerfile: services/ChoreographedSagaCoordinator/Dockerfile
+    container_name: choreographed-saga-coordinator
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - redis
+      - stock-service
+      - payment-service
+      - order-service
+      - notification-service
+    # No Traefik labels for /api/*
+
   # Shared Stock Service
   stock-service:
     build:
@@ -192,6 +210,37 @@ services:
       - ConnectionStrings__Redis=redis:6379
     depends_on:
       - redis
+    # No Traefik labels for /api/*
+
+  # Event Store Service
+  event-store:
+    build:
+      context: .
+      dockerfile: services/EventStore/Dockerfile
+    container_name: event-store
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - MongoDB__ConnectionString=mongodb://mongodb:27017
+      - MongoDB__DatabaseName=cornerShop
+      - Kafka__BootstrapServers=kafka:29092
+    depends_on:
+      - mongodb
+      - kafka
+    # No Traefik labels for /api/*
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/NotificationService/Dockerfile
+    container_name: notification-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - Kafka__BootstrapServers=kafka:29092
+    depends_on:
+      - kafka
     # No Traefik labels for /api/*
 
   # Traefik Load Balancer
@@ -269,8 +318,61 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
 
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  # Kafka Event Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  # Kafka UI for management
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
 volumes:
   mongodb_data:
   redis_data:
   prometheus_data:
-  grafana_data: 
+  grafana_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data: 

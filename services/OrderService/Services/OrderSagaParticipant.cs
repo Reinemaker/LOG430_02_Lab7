@@ -32,7 +32,7 @@ namespace OrderService.Services
 
         public async Task<SagaParticipantResponse> ExecuteStepAsync(SagaParticipantRequest request)
         {
-            _logger.LogInformation("Executing saga step: {SagaId} | {StepName} | {OrderId}", 
+            _logger.LogInformation("Executing saga step: {SagaId} | {StepName} | {OrderId}",
                 request.SagaId, request.StepName, request.OrderId);
 
             try
@@ -68,7 +68,7 @@ namespace OrderService.Services
 
         public async Task<SagaCompensationResponse> CompensateStepAsync(SagaCompensationRequest request)
         {
-            _logger.LogInformation("Compensating saga step: {SagaId} | {StepName} | Reason: {Reason}", 
+            _logger.LogInformation("Compensating saga step: {SagaId} | {StepName} | Reason: {Reason}",
                 request.SagaId, request.StepName, request.Reason);
 
             try
@@ -150,7 +150,7 @@ namespace OrderService.Services
                     SagaId = request.SagaId,
                     StepName = request.StepName,
                     Success = true,
-                    Data = new { OrderId = order.Id, OrderNumber = order.OrderNumber },
+                    Data = new { OrderId = order.Id, order.OrderNumber },
                     CompensationRequired = true
                 };
             }
@@ -196,7 +196,7 @@ namespace OrderService.Services
                     };
                     await _eventProducer.PublishOrderEventAsync(orderCancelledEvent, request.CorrelationId);
 
-                    _logger.LogInformation("Order compensation completed: {SagaId} | {OrderId} | Reason: {Reason}", 
+                    _logger.LogInformation("Order compensation completed: {SagaId} | {OrderId} | Reason: {Reason}",
                         request.SagaId, orderId, request.Reason);
                 }
 
@@ -247,4 +247,4 @@ namespace OrderService.Services
             public string StoreId { get; set; } = string.Empty;
         }
     }
-} 
+}

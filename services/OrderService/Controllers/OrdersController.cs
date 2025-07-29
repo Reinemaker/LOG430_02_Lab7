@@ -173,6 +173,45 @@ public class OrdersController : ControllerBase
         }
     }
 
+    [HttpPost("choreographed-saga")]
+    public async Task<ActionResult<Order>> CreateOrderWithChoreographedSaga(ChoreographedSagaOrderRequest request)
+    {
+        try
+        {
+            var order = new Order
+            {
+                CustomerId = request.CustomerId,
+                StoreId = request.StoreId,
+                PaymentMethod = request.PaymentMethod,
+                ShippingAddress = request.ShippingAddress,
+                Status = OrderStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var createdOrder = await _orderService.CreateOrderAsync(order);
+
+            // Publish OrderCreated event to start the choreographed saga
+            var orderCreatedEvent = new OrderCreatedEvent(
+                createdOrder.Id,
+                request.CustomerId,
+                request.TotalAmount,
+                request.Items
+            );
+
+            // Note: In a real implementation, you would inject IEventProducer and publish the event
+            // await _eventProducer.PublishAsync(orderCreatedEvent, "sagas.events");
+
+            _logger.LogInformation("Order created with choreographed saga: {OrderId}", createdOrder.Id);
+            return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, createdOrder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating order with choreographed saga");
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
     [HttpPatch("{id}/status")]
     public async Task<ActionResult<Order>> UpdateOrderStatus(string id, [FromBody] OrderStatus status)
     {
@@ -261,7 +300,7 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Received saga participation request: {SagaId} | {StepName} | {OrderId}", 
+            _logger.LogInformation("Received saga participation request: {SagaId} | {StepName} | {OrderId}",
                 request.SagaId, request.StepName, request.OrderId);
 
             var response = await _sagaParticipant.ExecuteStepAsync(request);
@@ -302,7 +341,7 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Received saga compensation request: {SagaId} | {StepName} | Reason: {Reason}", 
+            _logger.LogInformation("Received saga compensation request: {SagaId} | {StepName} | Reason: {Reason}",
                 request.SagaId, request.StepName, request.Reason);
 
             var response = await _sagaParticipant.CompensateStepAsync(request);
@@ -422,4 +461,14 @@ public class CheckoutRequest
     public string StoreId { get; set; } = string.Empty;
     public PaymentMethod PaymentMethod { get; set; }
     public Address? ShippingAddress { get; set; }
-} 
+}
+
+public class ChoreographedSagaOrderRequest
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public string StoreId { get; set; } = string.Empty;
+    public PaymentMethod PaymentMethod { get; set; }
+    public Address? ShippingAddress { get; set; }
+    public decimal TotalAmount { get; set; }
+    public List<OrderItem> Items { get; set; } = new();
+}

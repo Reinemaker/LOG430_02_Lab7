@@ -15,4 +15,4 @@ public interface ICustomerService
     Task<bool> ActivateCustomerAsync(string id);
     Task<IEnumerable<Customer>> GetCustomersByStoreAsync(string storeId);
     Task<bool> UpdateCustomerStatsAsync(string customerId, int orderCount, decimal totalSpent);
-} 
+}

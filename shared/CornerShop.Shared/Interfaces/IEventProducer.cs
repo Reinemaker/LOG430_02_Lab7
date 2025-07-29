@@ -88,4 +88,4 @@ namespace CornerShop.Shared.Interfaces
         public const string SagaOrchestration = "saga.orchestration";
         public const string SagaCompensation = "saga.compensation";
     }
-} 
+}

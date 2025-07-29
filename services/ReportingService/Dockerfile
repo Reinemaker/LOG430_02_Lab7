@@ -6,11 +6,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy the project file
-COPY *.csproj ./
+COPY services/ReportingService/ReportingService.csproj ./
 RUN dotnet restore
 
 # Copy everything else
-COPY . .
+COPY services/ReportingService/ .
+COPY shared/ ./shared/
 
 # Build the application
 RUN dotnet build -c Release -o /app/build

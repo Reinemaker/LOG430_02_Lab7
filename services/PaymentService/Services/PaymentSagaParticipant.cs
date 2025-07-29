@@ -26,7 +26,7 @@ public class PaymentSagaParticipant : ISagaParticipant
 
     public async Task<SagaParticipantResponse> ExecuteStepAsync(SagaParticipantRequest request)
     {
-        _logger.LogInformation("Executing saga step {StepName} for correlation {CorrelationId}", 
+        _logger.LogInformation("Executing saga step {StepName} for correlation {CorrelationId}",
             request.StepName, request.CorrelationId);
 
         try
@@ -34,27 +34,27 @@ public class PaymentSagaParticipant : ISagaParticipant
             return request.StepName switch
             {
                 "ProcessPayment" => await ExecuteProcessPaymentAsync(request),
-                _ => new SagaParticipantResponse 
-                { 
-                    Success = false, 
-                    ErrorMessage = $"Unsupported step: {request.StepName}" 
+                _ => new SagaParticipantResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Unsupported step: {request.StepName}"
                 }
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing saga step {StepName}", request.StepName);
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             };
         }
     }
 
     public async Task<SagaCompensationResponse> CompensateStepAsync(SagaCompensationRequest request)
     {
-        _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}", 
+        _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}",
             request.StepName, request.CorrelationId);
 
         try
@@ -62,20 +62,20 @@ public class PaymentSagaParticipant : ISagaParticipant
             return request.StepName switch
             {
                 "ProcessPayment" => await CompensateProcessPaymentAsync(request),
-                _ => new SagaCompensationResponse 
-                { 
-                    Success = false, 
-                    ErrorMessage = $"Unsupported compensation step: {request.StepName}" 
+                _ => new SagaCompensationResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Unsupported compensation step: {request.StepName}"
                 }
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error compensating saga step {StepName}", request.StepName);
-            return new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             };
         }
     }
@@ -89,16 +89,16 @@ public class PaymentSagaParticipant : ISagaParticipant
 
         if (amount <= 0 || string.IsNullOrEmpty(customerId))
         {
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Invalid payment amount or customer ID" 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid payment amount or customer ID"
             };
         }
 
         // Simulate payment processing with controlled failures
         var paymentSuccess = await SimulatePaymentProcessingAsync(amount, paymentMethod, customerId);
-        
+
         if (paymentSuccess)
         {
             var paymentProcessedEvent = new PaymentProcessedEvent
@@ -114,14 +114,14 @@ public class PaymentSagaParticipant : ISagaParticipant
 
             // Store payment record for potential compensation
             var paymentKey = $"payment:{request.CorrelationId}";
-            var paymentRecord = new { CustomerId = customerId, Amount = amount, PaymentMethod = paymentMethod, TransactionId = paymentProcessedEvent.TransactionId };
-            await _cache.SetStringAsync(paymentKey, JsonSerializer.Serialize(paymentRecord), 
+            var paymentRecord = new { CustomerId = customerId, Amount = amount, PaymentMethod = paymentMethod, paymentProcessedEvent.TransactionId };
+            await _cache.SetStringAsync(paymentKey, JsonSerializer.Serialize(paymentRecord),
                 new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24) });
 
-            return new SagaParticipantResponse 
-            { 
-                Success = true, 
-                Data = new { TransactionId = paymentProcessedEvent.TransactionId, Amount = amount }
+            return new SagaParticipantResponse
+            {
+                Success = true,
+                Data = new { paymentProcessedEvent.TransactionId, Amount = amount }
             };
         }
         else
@@ -137,10 +137,10 @@ public class PaymentSagaParticipant : ISagaParticipant
 
             await _eventProducer.PublishPaymentEventAsync(paymentFailedEvent, request.CorrelationId);
 
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Payment processing failed" 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = "Payment processing failed"
             };
         }
     }
@@ -153,17 +153,17 @@ public class PaymentSagaParticipant : ISagaParticipant
 
         if (string.IsNullOrEmpty(customerId))
         {
-            return new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Invalid customer ID for payment compensation" 
+            return new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid customer ID for payment compensation"
             };
         }
 
         // Simulate payment refund
         var paymentKey = $"payment:{request.CorrelationId}";
         var paymentRecordJson = await _cache.GetStringAsync(paymentKey);
-        
+
         if (!string.IsNullOrEmpty(paymentRecordJson))
         {
             var paymentRecord = JsonSerializer.Deserialize<Dictionary<string, object>>(paymentRecordJson);
@@ -177,26 +177,26 @@ public class PaymentSagaParticipant : ISagaParticipant
                 // Remove payment record after successful refund
                 await _cache.RemoveAsync(paymentKey);
 
-                return new SagaCompensationResponse 
-                { 
-                    Success = true, 
+                return new SagaCompensationResponse
+                {
+                    Success = true,
                     Data = new { Refunded = true, TransactionId = transactionId, Amount = amount }
                 };
             }
             else
             {
-                return new SagaCompensationResponse 
-                { 
-                    Success = false, 
-                    ErrorMessage = "Payment refund failed" 
+                return new SagaCompensationResponse
+                {
+                    Success = false,
+                    ErrorMessage = "Payment refund failed"
                 };
             }
         }
 
-        return new SagaCompensationResponse 
-        { 
-            Success = false, 
-            ErrorMessage = "Payment record not found for compensation" 
+        return new SagaCompensationResponse
+        {
+            Success = false,
+            ErrorMessage = "Payment record not found for compensation"
         };
     }
 
@@ -227,9 +227,9 @@ public class PaymentSagaParticipant : ISagaParticipant
     {
         // Simulate refund processing
         await Task.Delay(50); // Simulate processing time
-        
+
         // Simulate successful refund (90% success rate)
         var random = new Random();
         return random.Next(1, 11) > 1;
     }
-} 
+}

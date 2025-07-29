@@ -18,4 +18,4 @@ public interface IOrderService
     Task<IEnumerable<Order>> GetOrdersByDateRangeAsync(DateTime startDate, DateTime endDate);
     Task<Order> ProcessCheckoutAsync(string customerId, string storeId, PaymentMethod paymentMethod, Address? shippingAddress);
     Task<bool> ValidateOrderAsync(Order order);
-} 
+}

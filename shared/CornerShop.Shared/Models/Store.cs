@@ -35,4 +35,4 @@ public class Store
 
     [BsonElement("email")]
     public string? Email { get; set; }
-} 
+}

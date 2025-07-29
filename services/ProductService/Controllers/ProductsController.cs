@@ -30,4 +30,4 @@ public class ProductsController : ControllerBase
     {
         return Ok("Product Service is healthy");
     }
-} 
+}

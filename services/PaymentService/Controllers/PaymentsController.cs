@@ -39,7 +39,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Participating in saga step {StepName} for correlation {CorrelationId}", 
+            _logger.LogInformation("Participating in saga step {StepName} for correlation {CorrelationId}",
                 request.StepName, request.CorrelationId);
 
             var response = await _sagaParticipant.ExecuteStepAsync(request);
@@ -48,10 +48,10 @@ public class PaymentsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error participating in saga step {StepName}", request.StepName);
-            return StatusCode(500, new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return StatusCode(500, new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             });
         }
     }
@@ -61,7 +61,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}", 
+            _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}",
                 request.StepName, request.CorrelationId);
 
             var response = await _sagaParticipant.CompensateStepAsync(request);
@@ -70,10 +70,10 @@ public class PaymentsController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error compensating saga step {StepName}", request.StepName);
-            return StatusCode(500, new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return StatusCode(500, new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             });
         }
     }
@@ -83,8 +83,8 @@ public class PaymentsController : ControllerBase
     {
         return Ok(new
         {
-            ServiceName = _sagaParticipant.ServiceName,
-            SupportedSteps = _sagaParticipant.SupportedSteps,
+            _sagaParticipant.ServiceName,
+            _sagaParticipant.SupportedSteps,
             Description = "Payment Service handles payment processing for order completion"
         });
     }
@@ -109,7 +109,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Processing payment for customer {CustomerId} amount {Amount}", 
+            _logger.LogInformation("Processing payment for customer {CustomerId} amount {Amount}",
                 request.CustomerId, request.Amount);
 
             var sagaRequest = new SagaParticipantRequest
@@ -125,14 +125,14 @@ public class PaymentsController : ControllerBase
             };
 
             var response = await _sagaParticipant.ExecuteStepAsync(sagaRequest);
-            
+
             if (response.Success)
             {
                 return Ok(new
                 {
                     Success = true,
                     TransactionId = response.Data?.GetType().GetProperty("TransactionId")?.GetValue(response.Data),
-                    Amount = request.Amount,
+                    request.Amount,
                     Message = "Payment processed successfully"
                 });
             }
@@ -159,4 +159,4 @@ public class PaymentRequest
     public string CustomerId { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string PaymentMethod { get; set; } = "CreditCard";
-} 
+}

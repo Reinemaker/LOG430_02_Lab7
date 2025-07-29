@@ -71,6 +71,16 @@ This script will:
 - **Controlled Failures**: Configurable failure simulation for testing and observation
 - **Enhanced Compensation**: Detailed compensation tracking and results
 
+### Choreographed Saga Pattern
+- **Event-Driven Coordination**: Services communicate through events for loose coupling
+- **Automatic Saga Tracking**: ChoreographedSagaCoordinator tracks saga state and progress
+- **Compensation Events**: Automatic compensation triggered by failure events
+- **Real-time Monitoring**: Comprehensive metrics and statistics for saga performance
+- **Redis Stream Integration**: Event streaming using Redis for reliable message delivery
+- **Prometheus Metrics**: Detailed saga metrics for observability and alerting
+- **Grafana Dashboards**: Visual monitoring of saga performance and health
+- **API Endpoints**: RESTful APIs for saga state management and monitoring
+
 ### Monitoring & Observability
 - **Prometheus**: Metrics collection and storage
 - **Grafana**: Real-time monitoring dashboards with saga state evolution visualization
@@ -178,6 +188,11 @@ docker ps
 ./test-saga-metrics-monitoring.sh
 ```
 
+### Test Choreographed Saga Pattern
+```bash
+./test-choreographed-saga.sh
+```
+
 ## 🔍 Troubleshooting
 
 ### Application Not Accessible
@@ -247,6 +262,20 @@ docker ps
 - `POST /api/v1/saga/stock` - Execute stock update saga with distributed transaction management
 - `POST /api/v1/saga/compensate/{sagaId}` - Compensate a failed saga by rolling back completed steps
 
+### Choreographed Saga API (`/api/choreographedsaga`)
+- `GET /api/choreographedsaga/states` - Get all saga states
+- `GET /api/choreographedsaga/state/{sagaId}` - Get specific saga state
+- `GET /api/choreographedsaga/states/status/{status}` - Get sagas by status
+- `GET /api/choreographedsaga/states/business-process/{businessProcess}` - Get sagas by business process
+- `GET /api/choreographedsaga/states/date-range` - Get sagas by date range
+- `GET /api/choreographedsaga/statistics` - Get saga statistics
+- `GET /api/choreographedsaga/metrics` - Get saga metrics
+- `DELETE /api/choreographedsaga/state/{sagaId}` - Delete saga state
+- `GET /api/choreographedsaga/health` - Health check
+
+### Choreographed Order API (`/api/orders`)
+- `POST /api/orders/choreographed-saga` - Create order with choreographed saga pattern
+
 ### Saga State Management API (`/api/v1/saga-state`)
 - `GET /api/v1/saga-state` - Get all sagas with their current states
 - `GET /api/v1/saga-state/{sagaId}` - Get a specific saga by ID
@@ -286,6 +315,7 @@ docker ps
 - [Load Testing Guide](load-tests/README.md)
 - [Monitoring Setup](grafana/README.md)
 - [Saga Orchestration](docs/SAGA_ORCHESTRATION.md)
+- [Choreographed Saga Pattern](docs/CHOREOGRAPHED_SAGA_SEQUENCE.md)
 
 ## 🔄 Development Workflow
 

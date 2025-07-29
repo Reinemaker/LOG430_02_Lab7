@@ -26,7 +26,7 @@ public class StockSagaParticipant : ISagaParticipant
 
     public async Task<SagaParticipantResponse> ExecuteStepAsync(SagaParticipantRequest request)
     {
-        _logger.LogInformation("Executing saga step {StepName} for correlation {CorrelationId}", 
+        _logger.LogInformation("Executing saga step {StepName} for correlation {CorrelationId}",
             request.StepName, request.CorrelationId);
 
         try
@@ -35,27 +35,27 @@ public class StockSagaParticipant : ISagaParticipant
             {
                 "VerifyStock" => await ExecuteVerifyStockAsync(request),
                 "ReserveStock" => await ExecuteReserveStockAsync(request),
-                _ => new SagaParticipantResponse 
-                { 
-                    Success = false, 
-                    ErrorMessage = $"Unsupported step: {request.StepName}" 
+                _ => new SagaParticipantResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Unsupported step: {request.StepName}"
                 }
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing saga step {StepName}", request.StepName);
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             };
         }
     }
 
     public async Task<SagaCompensationResponse> CompensateStepAsync(SagaCompensationRequest request)
     {
-        _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}", 
+        _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}",
             request.StepName, request.CorrelationId);
 
         try
@@ -63,20 +63,20 @@ public class StockSagaParticipant : ISagaParticipant
             return request.StepName switch
             {
                 "ReserveStock" => await CompensateReserveStockAsync(request),
-                _ => new SagaCompensationResponse 
-                { 
-                    Success = false, 
-                    ErrorMessage = $"Unsupported compensation step: {request.StepName}" 
+                _ => new SagaCompensationResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Unsupported compensation step: {request.StepName}"
                 }
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error compensating saga step {StepName}", request.StepName);
-            return new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             };
         }
     }
@@ -89,16 +89,16 @@ public class StockSagaParticipant : ISagaParticipant
 
         if (string.IsNullOrEmpty(productId) || quantity <= 0)
         {
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Invalid product ID or quantity" 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid product ID or quantity"
             };
         }
 
         // Simulate stock verification
         var availableStock = await GetAvailableStockAsync(productId);
-        
+
         if (availableStock >= quantity)
         {
             var stockVerifiedEvent = new StockVerifiedEvent
@@ -111,9 +111,9 @@ public class StockSagaParticipant : ISagaParticipant
 
             await _eventProducer.PublishInventoryEventAsync(stockVerifiedEvent, request.CorrelationId);
 
-            return new SagaParticipantResponse 
-            { 
-                Success = true, 
+            return new SagaParticipantResponse
+            {
+                Success = true,
                 Data = new { AvailableStock = availableStock, VerificationResult = true }
             };
         }
@@ -129,10 +129,10 @@ public class StockSagaParticipant : ISagaParticipant
 
             await _eventProducer.PublishInventoryEventAsync(stockVerifiedEvent, request.CorrelationId);
 
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = $"Insufficient stock. Available: {availableStock}, Requested: {quantity}" 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = $"Insufficient stock. Available: {availableStock}, Requested: {quantity}"
             };
         }
     }
@@ -145,18 +145,18 @@ public class StockSagaParticipant : ISagaParticipant
 
         if (string.IsNullOrEmpty(productId) || quantity <= 0)
         {
-            return new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Invalid product ID or quantity" 
+            return new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid product ID or quantity"
             };
         }
 
         // Simulate stock reservation
         var reservationKey = $"reservation:{productId}:{request.CorrelationId}";
         var reservationData = new { ProductId = productId, Quantity = quantity, ReservedAt = DateTime.UtcNow };
-        
-        await _cache.SetStringAsync(reservationKey, JsonSerializer.Serialize(reservationData), 
+
+        await _cache.SetStringAsync(reservationKey, JsonSerializer.Serialize(reservationData),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) });
 
         var stockReservedEvent = new StockReservedEvent
@@ -168,9 +168,9 @@ public class StockSagaParticipant : ISagaParticipant
 
         await _eventProducer.PublishInventoryEventAsync(stockReservedEvent, request.CorrelationId);
 
-        return new SagaParticipantResponse 
-        { 
-            Success = true, 
+        return new SagaParticipantResponse
+        {
+            Success = true,
             Data = new { ReservationId = reservationKey, ReservedQuantity = quantity }
         };
     }
@@ -183,10 +183,10 @@ public class StockSagaParticipant : ISagaParticipant
 
         if (string.IsNullOrEmpty(productId) || string.IsNullOrEmpty(reservationId))
         {
-            return new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = "Invalid product ID or reservation ID" 
+            return new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = "Invalid product ID or reservation ID"
             };
         }
 
@@ -202,9 +202,9 @@ public class StockSagaParticipant : ISagaParticipant
 
         await _eventProducer.PublishInventoryEventAsync(stockReleasedEvent, request.CorrelationId);
 
-        return new SagaCompensationResponse 
-        { 
-            Success = true, 
+        return new SagaCompensationResponse
+        {
+            Success = true,
             Data = new { Released = true, ReservationId = reservationId }
         };
     }
@@ -214,7 +214,7 @@ public class StockSagaParticipant : ISagaParticipant
         // Simulate stock lookup - in real implementation, this would query a database
         var stockKey = $"stock:{productId}";
         var cachedStock = await _cache.GetStringAsync(stockKey);
-        
+
         if (int.TryParse(cachedStock, out var stock))
         {
             return stock;
@@ -222,9 +222,9 @@ public class StockSagaParticipant : ISagaParticipant
 
         // Simulate random stock availability for testing
         var randomStock = new Random().Next(0, 100);
-        await _cache.SetStringAsync(stockKey, randomStock.ToString(), 
+        await _cache.SetStringAsync(stockKey, randomStock.ToString(),
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) });
-        
+
         return randomStock;
     }
-} 
+}

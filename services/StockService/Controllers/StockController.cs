@@ -39,7 +39,7 @@ public class StockController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Participating in saga step {StepName} for correlation {CorrelationId}", 
+            _logger.LogInformation("Participating in saga step {StepName} for correlation {CorrelationId}",
                 request.StepName, request.CorrelationId);
 
             var response = await _sagaParticipant.ExecuteStepAsync(request);
@@ -48,10 +48,10 @@ public class StockController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error participating in saga step {StepName}", request.StepName);
-            return StatusCode(500, new SagaParticipantResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return StatusCode(500, new SagaParticipantResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             });
         }
     }
@@ -61,7 +61,7 @@ public class StockController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}", 
+            _logger.LogInformation("Compensating saga step {StepName} for correlation {CorrelationId}",
                 request.StepName, request.CorrelationId);
 
             var response = await _sagaParticipant.CompensateStepAsync(request);
@@ -70,10 +70,10 @@ public class StockController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error compensating saga step {StepName}", request.StepName);
-            return StatusCode(500, new SagaCompensationResponse 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message 
+            return StatusCode(500, new SagaCompensationResponse
+            {
+                Success = false,
+                ErrorMessage = ex.Message
             });
         }
     }
@@ -83,8 +83,8 @@ public class StockController : ControllerBase
     {
         return Ok(new
         {
-            ServiceName = _sagaParticipant.ServiceName,
-            SupportedSteps = _sagaParticipant.SupportedSteps,
+            _sagaParticipant.ServiceName,
+            _sagaParticipant.SupportedSteps,
             Description = "Stock Service handles stock verification and reservation for order processing"
         });
     }
@@ -103,4 +103,4 @@ public class StockController : ControllerBase
             return StatusCode(500, "Error retrieving event statistics");
         }
     }
-} 
+}

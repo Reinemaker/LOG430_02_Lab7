@@ -71,7 +71,7 @@ namespace SagaOrchestrator.Services
             // Update saga state
             var sagaKey = $"saga:{sagaId}";
             var sagaJson = await db.StringGetAsync(sagaKey);
-            
+
             if (!sagaJson.IsNull)
             {
                 var sagaData = JsonSerializer.Deserialize<Dictionary<string, object>>(sagaJson.ToString());
@@ -79,13 +79,13 @@ namespace SagaOrchestrator.Services
                 {
                     sagaData["CurrentState"] = newState.ToString();
                     sagaData["UpdatedAt"] = DateTime.UtcNow;
-                    
+
                     var updatedSagaJson = JsonSerializer.Serialize(sagaData);
                     await db.StringSetAsync(sagaKey, updatedSagaJson);
                 }
             }
 
-            _logger.LogInformation("Updated saga state: {SagaId} | {FromState} -> {ToState} | {ServiceName} | {Action}", 
+            _logger.LogInformation("Updated saga state: {SagaId} | {FromState} -> {ToState} | {ServiceName} | {Action}",
                 sagaId, transition.FromState, newState, serviceName, action);
         }
 
@@ -142,7 +142,7 @@ namespace SagaOrchestrator.Services
             // Update saga with completion info
             var sagaKey = $"saga:{sagaId}";
             var sagaJson = await db.StringGetAsync(sagaKey);
-            
+
             if (!sagaJson.IsNull)
             {
                 var sagaData = JsonSerializer.Deserialize<Dictionary<string, object>>(sagaJson.ToString());
@@ -151,7 +151,7 @@ namespace SagaOrchestrator.Services
                     sagaData["Result"] = result;
                     sagaData["CompletedAt"] = DateTime.UtcNow;
                     sagaData["UpdatedAt"] = DateTime.UtcNow;
-                    
+
                     var updatedSagaJson = JsonSerializer.Serialize(sagaData);
                     await db.StringSetAsync(sagaKey, updatedSagaJson);
                 }
@@ -170,11 +170,11 @@ namespace SagaOrchestrator.Services
         {
             var db = _redis.GetDatabase();
             var activeSagas = await db.SetMembersAsync("active_sagas");
-            
+
             return activeSagas
                 .Where(s => !s.IsNull)
                 .Select(s => s.ToString())
                 .ToList();
         }
     }
-} 
+}

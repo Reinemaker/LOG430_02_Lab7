@@ -24,4 +24,4 @@ public class ReportsController : ControllerBase
     {
         return Ok("Reporting Service is healthy");
     }
-} 
+}

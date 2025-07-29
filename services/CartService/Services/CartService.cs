@@ -20,7 +20,7 @@ public class CartService : ICartService
     {
         var cacheKey = $"cart:{customerId}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<Cart>(cached);
@@ -43,18 +43,14 @@ public class CartService : ICartService
         };
 
         await SaveCartAsync(cart);
-        
+
         _logger.LogInformation("Cart created for customer: {CustomerId}", customerId);
         return cart;
     }
 
     public async Task<Cart> AddItemToCartAsync(string customerId, CartItem item)
     {
-        var cart = await GetCartByCustomerIdAsync(customerId);
-        if (cart == null)
-        {
-            cart = await CreateCartAsync(customerId);
-        }
+        var cart = await GetCartByCustomerIdAsync(customerId) ?? await CreateCartAsync(customerId);
 
         // Check if item already exists in cart
         var existingItem = cart.Items.FirstOrDefault(i => i.ProductId == item.ProductId);
@@ -78,18 +74,8 @@ public class CartService : ICartService
 
     public async Task<Cart> UpdateCartItemAsync(string customerId, string productId, int quantity)
     {
-        var cart = await GetCartByCustomerIdAsync(customerId);
-        if (cart == null)
-        {
-            throw new InvalidOperationException($"Cart not found for customer {customerId}");
-        }
-
-        var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
-        if (item == null)
-        {
-            throw new InvalidOperationException($"Product {productId} not found in cart");
-        }
-
+        var cart = await GetCartByCustomerIdAsync(customerId) ?? throw new InvalidOperationException($"Cart not found for customer {customerId}");
+        var item = cart.Items.FirstOrDefault(i => i.ProductId == productId) ?? throw new InvalidOperationException($"Product {productId} not found in cart");
         if (quantity <= 0)
         {
             cart.Items.Remove(item);
@@ -110,12 +96,7 @@ public class CartService : ICartService
 
     public async Task<Cart> RemoveItemFromCartAsync(string customerId, string productId)
     {
-        var cart = await GetCartByCustomerIdAsync(customerId);
-        if (cart == null)
-        {
-            throw new InvalidOperationException($"Cart not found for customer {customerId}");
-        }
-
+        var cart = await GetCartByCustomerIdAsync(customerId) ?? throw new InvalidOperationException($"Cart not found for customer {customerId}");
         var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
         if (item != null)
         {
@@ -151,7 +132,7 @@ public class CartService : ICartService
     {
         var cacheKey = $"cart:{customerId}";
         await _cache.RemoveAsync(cacheKey);
-        
+
         _logger.LogInformation("Cart deleted for customer: {CustomerId}", customerId);
         return true;
     }
@@ -194,7 +175,7 @@ public class CartService : ICartService
     {
         var cacheKey = $"cart:{cart.CustomerId}";
         var cartJson = JsonSerializer.Serialize(cart);
-        
+
         await _cache.SetStringAsync(cacheKey, cartJson, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30)
@@ -205,4 +186,4 @@ public class CartService : ICartService
     {
         cart.TotalAmount = cart.Items.Sum(item => item.TotalPrice);
     }
-} 
+}

@@ -51,4 +51,4 @@ public class Sale
     {
         Date = DateTime.UtcNow;
     }
-} 
+}

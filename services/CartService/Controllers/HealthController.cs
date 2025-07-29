@@ -25,14 +25,14 @@ public class HealthController : ControllerBase
             status = "healthy",
             service = "cart-service",
             instance = instanceId,
-            hostname = hostname,
-            timestamp = timestamp,
+            hostname,
+            timestamp,
             version = "1.0.0",
             uptime = Environment.TickCount64
         };
 
         _logger.LogInformation("Health check requested for instance {InstanceId}", instanceId);
-        
+
         return Ok(healthInfo);
     }
-} 
+}

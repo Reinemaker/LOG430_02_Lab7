@@ -287,4 +287,4 @@ namespace CornerShop.Shared.Models
         [JsonPropertyName("reservationId")]
         public string ReservationId { get; set; } = Guid.NewGuid().ToString();
     }
-} 
+}

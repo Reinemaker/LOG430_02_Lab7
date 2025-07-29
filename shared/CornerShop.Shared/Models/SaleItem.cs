@@ -24,4 +24,4 @@ public class SaleItem
     [Required]
     [BsonElement("totalPrice")]
     public decimal TotalPrice { get; set; }
-} 
+}

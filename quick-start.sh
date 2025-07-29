@@ -64,9 +64,41 @@ install_docker() {
     fi
 }
 
+# Function to check disk space
+check_disk_space() {
+    echo -e "${YELLOW}Checking available disk space...${NC}"
+    
+    # Get available space in GB
+    local available_space=$(df / | awk 'NR==2 {print int($4/1024/1024)}')
+    
+    if [ "$available_space" -lt 5 ]; then
+        echo -e "${RED}❌ Low disk space detected: ${available_space}GB available${NC}"
+        echo -e "${YELLOW}Recommended: At least 5GB free space${NC}"
+        echo -e "${YELLOW}Cleaning up Docker resources...${NC}"
+        
+        # Clean up Docker resources
+        docker system prune -a -f --volumes
+        
+        # Check space again
+        available_space=$(df / | awk 'NR==2 {print int($4/1024/1024)}')
+        echo -e "${YELLOW}After cleanup: ${available_space}GB available${NC}"
+        
+        if [ "$available_space" -lt 3 ]; then
+            echo -e "${RED}❌ Still insufficient disk space${NC}"
+            echo -e "${YELLOW}Please free up more space and try again${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}✓ Sufficient disk space: ${available_space}GB available${NC}"
+    fi
+}
+
 # Function to start services
 start_services() {
     echo -e "${YELLOW}Starting CornerShop microservices...${NC}"
+    
+    # Check disk space before starting
+    check_disk_space
     
     # Create necessary directories
     mkdir -p letsencrypt
@@ -75,21 +107,42 @@ start_services() {
     # Check if microservices compose file exists
     if [ -f "docker-compose.microservices.yml" ]; then
         echo -e "${YELLOW}Starting microservices architecture...${NC}"
-        docker-compose -f docker-compose.microservices.yml up -d --build
+        
+        # Start with build in background to show progress
+        echo -e "${YELLOW}Building and starting services (this may take a few minutes)...${NC}"
+        
+        if docker-compose -f docker-compose.microservices.yml up -d --build; then
+    echo -e "${GREEN}✓ Services started successfully${NC}"
+        else
+            echo -e "${RED}❌ Failed to start services${NC}"
+            echo -e "${YELLOW}Check logs with: docker-compose -f docker-compose.microservices.yml logs${NC}"
+            exit 1
+        fi
     else
         echo -e "${RED}❌ docker-compose.microservices.yml not found${NC}"
         echo -e "${YELLOW}Please ensure you're in the correct directory${NC}"
         exit 1
     fi
+}
+
+# Function to check if Docker is running
+check_docker() {
+    echo -e "${YELLOW}Checking Docker status...${NC}"
     
-    echo -e "${GREEN}✓ Services started successfully${NC}"
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Docker is not running${NC}"
+        echo -e "${YELLOW}Please start Docker and try again${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✓ Docker is running${NC}"
 }
 
 # Function to wait for services to be ready
 wait_for_services() {
     echo -e "${YELLOW}Waiting for services to be ready...${NC}"
     
-    local max_attempts=5
+    local max_attempts=10
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
@@ -101,14 +154,22 @@ wait_for_services() {
             break
         fi
         
+        # Check if containers are running
+        local running_containers=$(docker-compose -f docker-compose.microservices.yml ps --services --filter "status=running" | wc -l)
+        local total_services=$(docker-compose -f docker-compose.microservices.yml config --services | wc -l)
+        
+        echo -e "${YELLOW}Running containers: $running_containers/$total_services${NC}"
+        
         if [ $attempt -eq $max_attempts ]; then
             echo -e "${RED}✗ Services failed to start within expected time${NC}"
+            echo -e "${YELLOW}Check container status:${NC}"
+            docker-compose -f docker-compose.microservices.yml ps
             echo -e "${YELLOW}Check logs with: docker-compose -f docker-compose.microservices.yml logs${NC}"
             exit 1
         fi
         
-        echo -e "${YELLOW}Services not ready yet, waiting 10 seconds...${NC}"
-        sleep 10
+        echo -e "${YELLOW}Services not ready yet, waiting 15 seconds...${NC}"
+        sleep 15
         attempt=$((attempt + 1))
     done
 }
@@ -211,6 +272,9 @@ main() {
         echo -e "${YELLOW}Please run this script from the CornerShop project directory${NC}"
         exit 1
     fi
+    
+    # Check Docker status
+    check_docker
     
     # Install dependencies
     install_docker

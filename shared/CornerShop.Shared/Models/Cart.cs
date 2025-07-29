@@ -69,4 +69,4 @@ public class CartItem
     {
         AddedAt = DateTime.UtcNow;
     }
-} 
+}

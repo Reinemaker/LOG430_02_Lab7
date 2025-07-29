@@ -279,4 +279,4 @@ namespace CornerShop.Shared.Models
         [JsonPropertyName("sagasByType")]
         public Dictionary<string, int> SagasByType { get; set; } = new Dictionary<string, int>();
     }
-} 
+}

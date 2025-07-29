@@ -141,9 +141,9 @@ run_comparison_test() {
     
     # Run microservices load tests
     echo -e "${YELLOW}Running microservices load tests${NC}"
-    ./run-load-tests.sh
-    
-    echo -e "${GREEN}✓ Microservices load tests completed${NC}"
+        ./run-load-tests.sh
+        
+        echo -e "${GREEN}✓ Microservices load tests completed${NC}"
     
     echo ""
 }

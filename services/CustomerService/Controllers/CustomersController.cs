@@ -234,4 +234,4 @@ public class CustomerStatsRequest
 {
     public int OrderCount { get; set; }
     public decimal TotalSpent { get; set; }
-} 
+}

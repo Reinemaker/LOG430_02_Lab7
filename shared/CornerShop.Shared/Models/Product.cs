@@ -46,4 +46,4 @@ public class Product
 
     [BsonElement("imageUrl")]
     public string? ImageUrl { get; set; }
-} 
+}

@@ -14,4 +14,4 @@ public interface IProductService
     Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm);
     Task<bool> UpdateStockAsync(string productId, int quantity);
     Task<IEnumerable<Product>> GetLowStockProductsAsync(int threshold = 10);
-} 
+}

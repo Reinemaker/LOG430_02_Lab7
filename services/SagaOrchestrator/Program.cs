@@ -63,4 +63,4 @@ app.MapControllers();
 // Map health checks
 app.MapHealthChecks("/health");
 
-app.Run(); 
+app.Run();

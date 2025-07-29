@@ -37,7 +37,7 @@ namespace SagaOrchestrator.Controllers
         {
             try
             {
-                _logger.LogInformation("Received saga execution request: {SagaId} | {SagaType} | {OrderId}", 
+                _logger.LogInformation("Received saga execution request: {SagaId} | {SagaType} | {OrderId}",
                     request.SagaId, request.SagaType, request.OrderId);
 
                 var response = await _sagaOrchestrator.ExecuteSagaAsync(request);
@@ -118,7 +118,7 @@ namespace SagaOrchestrator.Controllers
         {
             try
             {
-                _logger.LogInformation("Received saga compensation request: {SagaId} | Reason: {Reason}", 
+                _logger.LogInformation("Received saga compensation request: {SagaId} | Reason: {Reason}",
                     sagaId, request.Reason);
 
                 var response = await _sagaOrchestrator.CompensateSagaAsync(sagaId, request.Reason);
@@ -354,4 +354,4 @@ namespace SagaOrchestrator.Controllers
         public string? PaymentMethod { get; set; }
         public string? CorrelationId { get; set; }
     }
-} 
+}

@@ -15,4 +15,4 @@ public interface ICartService
     Task<bool> UpdateCartTotalAsync(string customerId);
     Task<IEnumerable<Cart>> GetExpiredCartsAsync();
     Task<bool> CleanupExpiredCartsAsync();
-} 
+}

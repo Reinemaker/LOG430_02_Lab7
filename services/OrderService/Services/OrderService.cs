@@ -23,14 +23,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = "orders:all";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<IEnumerable<Order>>(cached) ?? new List<Order>();
         }
 
         var orders = await _orders.Find(_ => true).ToListAsync();
-        
+
         await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
@@ -43,14 +43,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = $"order:{id}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<Order>(cached);
         }
 
         var order = await _orders.Find(o => o.Id == id).FirstOrDefaultAsync();
-        
+
         if (order != null)
         {
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(order), new DistributedCacheEntryOptions
@@ -66,14 +66,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = $"order:number:{orderNumber}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<Order>(cached);
         }
 
         var order = await _orders.Find(o => o.OrderNumber == orderNumber).FirstOrDefaultAsync();
-        
+
         if (order != null)
         {
             await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(order), new DistributedCacheEntryOptions
@@ -89,14 +89,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = $"orders:customer:{customerId}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<IEnumerable<Order>>(cached) ?? new List<Order>();
         }
 
         var orders = await _orders.Find(o => o.CustomerId == customerId).ToListAsync();
-        
+
         await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
@@ -109,14 +109,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = $"orders:store:{storeId}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<IEnumerable<Order>>(cached) ?? new List<Order>();
         }
 
         var orders = await _orders.Find(o => o.StoreId == storeId).ToListAsync();
-        
+
         await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
@@ -129,14 +129,14 @@ public class OrderService : IOrderService
     {
         var cacheKey = $"orders:status:{status}";
         var cached = await _cache.GetStringAsync(cacheKey);
-        
+
         if (!string.IsNullOrEmpty(cached))
         {
             return JsonSerializer.Deserialize<IEnumerable<Order>>(cached) ?? new List<Order>();
         }
 
         var orders = await _orders.Find(o => o.Status == status).ToListAsync();
-        
+
         await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(orders), new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
@@ -149,12 +149,12 @@ public class OrderService : IOrderService
     {
         order.Id = Guid.NewGuid().ToString();
         order.OrderDate = DateTime.UtcNow;
-        
+
         await _orders.InsertOneAsync(order);
-        
+
         // Invalidate related caches
         await InvalidateOrderCaches();
-        
+
         _logger.LogInformation("Order created: {OrderId}", order.Id);
         return order;
     }
@@ -163,15 +163,15 @@ public class OrderService : IOrderService
     {
         var update = Builders<Order>.Update.Set(o => o.Status, status);
         var result = await _orders.UpdateOneAsync(o => o.Id == id, update);
-        
+
         if (result.ModifiedCount > 0)
         {
             await InvalidateOrderCaches();
             await _cache.RemoveAsync($"order:{id}");
-            
+
             _logger.LogInformation("Order status updated: {OrderId} -> {Status}", id, status);
         }
-        
+
         return await GetOrderByIdAsync(id) ?? throw new InvalidOperationException($"Order {id} not found");
     }
 
@@ -179,15 +179,15 @@ public class OrderService : IOrderService
     {
         var update = Builders<Order>.Update.Set(o => o.PaymentStatus, status);
         var result = await _orders.UpdateOneAsync(o => o.Id == id, update);
-        
+
         if (result.ModifiedCount > 0)
         {
             await InvalidateOrderCaches();
             await _cache.RemoveAsync($"order:{id}");
-            
+
             _logger.LogInformation("Payment status updated: {OrderId} -> {Status}", id, status);
         }
-        
+
         return await GetOrderByIdAsync(id) ?? throw new InvalidOperationException($"Order {id} not found");
     }
 
@@ -195,32 +195,32 @@ public class OrderService : IOrderService
     {
         var update = Builders<Order>.Update.Set(o => o.Status, OrderStatus.Cancelled);
         var result = await _orders.UpdateOneAsync(o => o.Id == id, update);
-        
+
         if (result.ModifiedCount > 0)
         {
             await InvalidateOrderCaches();
             await _cache.RemoveAsync($"order:{id}");
-            
+
             _logger.LogInformation("Order cancelled: {OrderId}", id);
             return true;
         }
-        
+
         return false;
     }
 
     public async Task<bool> DeleteOrderAsync(string id)
     {
         var result = await _orders.DeleteOneAsync(o => o.Id == id);
-        
+
         if (result.DeletedCount > 0)
         {
             await InvalidateOrderCaches();
             await _cache.RemoveAsync($"order:{id}");
-            
+
             _logger.LogInformation("Order deleted: {OrderId}", id);
             return true;
         }
-        
+
         return false;
     }
 
@@ -230,7 +230,7 @@ public class OrderService : IOrderService
             Builders<Order>.Filter.Gte(o => o.OrderDate, startDate),
             Builders<Order>.Filter.Lte(o => o.OrderDate, endDate)
         );
-        
+
         return await _orders.Find(filter).ToListAsync();
     }
 
@@ -238,7 +238,7 @@ public class OrderService : IOrderService
     {
         // This would typically integrate with the cart service to get cart items
         // For now, we'll create a basic order structure
-        
+
         var order = new Order
         {
             CustomerId = customerId,
@@ -289,4 +289,4 @@ public class OrderService : IOrderService
         await _cache.RemoveAsync("orders:all");
         // Note: In a production environment, you might want to implement a more sophisticated cache invalidation strategy
     }
-} 
+}
