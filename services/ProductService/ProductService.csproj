@@ -7,16 +7,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Standard ASP.NET Core packages -->
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
-    <PackageReference Include="MongoDB.Driver" Version="2.24.0" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    
+    <!-- Redis packages -->
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.7.17" />
+    
+    <!-- Monitoring and health checks -->
     <PackageReference Include="prometheus-net" Version="8.2.1" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
-    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" Version="7.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="7.0.2" />
+    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" Version="7.0.2" />
+    
+    <!-- HTTP client for inter-service communication -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 
-  <!-- Shared library reference removed to avoid conflicts -->
+  <ItemGroup>
+    <!-- Reference to shared library -->
+    <ProjectReference Include="../../shared/CornerShop.Shared/CornerShop.Shared.csproj" />
+  </ItemGroup>
 
-</Project> 
+</Project>

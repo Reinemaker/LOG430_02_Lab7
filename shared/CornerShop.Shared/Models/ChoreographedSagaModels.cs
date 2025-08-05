@@ -138,4 +138,4 @@ public class BusinessProcessStats
 
     [JsonPropertyName("failureRate")]
     public double FailureRate => TotalCount > 0 ? (double)FailedCount / TotalCount * 100 : 0;
-} 
+}

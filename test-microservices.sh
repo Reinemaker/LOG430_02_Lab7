@@ -5,98 +5,48 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source shared test utilities
+source ./test-utils.sh
 
 # Configuration
-API_GATEWAY_URL="http://api.cornershop.localhost"
-API_KEY="cornershop-api-key-2024"
 SERVICES=("product" "customer" "cart" "order")
-TIMEOUT=10
 
-echo -e "${BLUE}=== CornerShop Microservices Testing Suite ===${NC}"
-echo ""
-
-# Function to test service health
-test_service_health() {
-    local service=$1
-    local url="http://${service}.cornershop.localhost"
-    
-    echo -e "${YELLOW}Testing ${service}-service health...${NC}"
-    
-    if curl -f -s --max-time $TIMEOUT "${url}/health" > /dev/null; then
-        echo -e "${GREEN}✅ ${service}-service is healthy${NC}"
-        return 0
-    else
-        echo -e "${RED}❌ ${service}-service is not responding${NC}"
-        return 1
-    fi
-}
+print_section "CornerShop Microservices Testing Suite"
 
 # Function to test service API endpoints
 test_service_api() {
     local service=$1
     local url="http://${service}.cornershop.localhost"
     
-    echo -e "${YELLOW}Testing ${service}-service API endpoints...${NC}"
+    print_section "Testing ${service}-service API endpoints"
     
     case $service in
         "product")
             # Test product endpoints
-            if curl -f -s --max-time $TIMEOUT "${url}/api/products" > /dev/null; then
-                echo -e "${GREEN}✅ GET /api/products - OK${NC}"
-            else
-                echo -e "${RED}❌ GET /api/products - Failed${NC}"
-            fi
-            
-            if curl -f -s --max-time $TIMEOUT "${url}/api/products/1" > /dev/null; then
-                echo -e "${GREEN}✅ GET /api/products/1 - OK${NC}"
-            else
-                echo -e "${RED}❌ GET /api/products/1 - Failed${NC}"
-            fi
+            test_api_endpoint "GET" "${url}/api/products"
+            test_api_endpoint "GET" "${url}/api/products/1"
             ;;
         "customer")
             # Test customer endpoints
-            if curl -f -s --max-time $TIMEOUT "${url}/api/customers" > /dev/null; then
-                echo -e "${GREEN}✅ GET /api/customers - OK${NC}"
-            else
-                echo -e "${RED}❌ GET /api/customers - Failed${NC}"
-            fi
+            test_api_endpoint "GET" "${url}/api/customers"
             ;;
         "cart")
             # Test cart endpoints
-            if curl -f -s --max-time $TIMEOUT "${url}/api/cart" > /dev/null; then
-                echo -e "${GREEN}✅ GET /api/cart - OK${NC}"
-            else
-                echo -e "${RED}❌ GET /api/cart - Failed${NC}"
-            fi
+            test_api_endpoint "GET" "${url}/api/carts"
             ;;
         "order")
             # Test order endpoints
-            if curl -f -s --max-time $TIMEOUT "${url}/api/orders" > /dev/null; then
-                echo -e "${GREEN}✅ GET /api/orders - OK${NC}"
-            else
-                echo -e "${RED}❌ GET /api/orders - Failed${NC}"
-            fi
+            test_api_endpoint "GET" "${url}/api/orders"
             ;;
     esac
 }
 
 # Function to test API Gateway
 test_api_gateway() {
-    echo -e "${BLUE}=== Testing API Gateway ===${NC}"
+    print_section "Testing API Gateway"
     
     # Test API Gateway health
-    if curl -f -s --max-time $TIMEOUT "${API_GATEWAY_URL}/health" > /dev/null; then
-        echo -e "${GREEN}✅ API Gateway health check - OK${NC}"
-    else
-        echo -e "${RED}❌ API Gateway health check - Failed${NC}"
-        return 1
-    fi
+    check_service_health "API Gateway" "${API_GATEWAY_URL}/health"
     
     # Test API Gateway routing to services
     echo -e "${YELLOW}Testing API Gateway routing...${NC}"
@@ -116,7 +66,7 @@ test_api_gateway() {
     fi
     
     # Test cart service through gateway
-    if curl -f -s --max-time $TIMEOUT -H "X-API-Key: ${API_KEY}" "${API_GATEWAY_URL}/api/cart" > /dev/null; then
+    if curl -f -s --max-time $TIMEOUT -H "X-API-Key: ${API_KEY}" "${API_GATEWAY_URL}/api/carts" > /dev/null; then
         echo -e "${GREEN}✅ API Gateway -> Cart Service - OK${NC}"
     else
         echo -e "${RED}❌ API Gateway -> Cart Service - Failed${NC}"
@@ -245,7 +195,7 @@ run_integration_test() {
     cart_response=$(curl -s --max-time $TIMEOUT -H "X-API-Key: ${API_KEY}" \
         -H "Content-Type: application/json" \
         -d '{"productId": 1, "quantity": 2}' \
-        "${API_GATEWAY_URL}/api/cart/add")
+        "${API_GATEWAY_URL}/api/carts/1/items")
     
     if echo "$cart_response" | grep -q "success\|added"; then
         echo -e "${GREEN}✅ Add to cart - OK${NC}"

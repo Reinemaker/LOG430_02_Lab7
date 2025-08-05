@@ -5,13 +5,14 @@ EXPOSE 80
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy the project file
-COPY services/SalesService/SalesService.csproj ./
-RUN dotnet restore
-
-# Copy everything else
-COPY services/SalesService/ .
+# Copy shared library first for better caching
 COPY shared/ ./shared/
+
+# Copy service-specific files
+COPY services/SalesService/ .
+
+# Restore dependencies
+RUN dotnet restore
 
 # Build the application
 RUN dotnet build -c Release -o /app/build
@@ -22,4 +23,4 @@ RUN dotnet publish -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "SalesService.dll"] 
+ENTRYPOINT ["dotnet", "SalesService.dll"]

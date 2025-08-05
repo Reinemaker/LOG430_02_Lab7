@@ -1,0 +1,201 @@
+@startuml CornerShop Development View
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam packageStyle rectangle
+
+title CornerShop - Development View
+
+package "CornerShop Solution" {
+    package "Client Applications" {
+        package "Web Client" {
+            [CornerShop.Web] as WEB
+            [CornerShop.Web.Tests] as WEB_TESTS
+        }
+        
+        package "Mobile Client" {
+            [CornerShop.Mobile] as MOBILE
+            [CornerShop.Mobile.Tests] as MOBILE_TESTS
+        }
+    }
+    
+    package "API Gateway" {
+        [CornerShop.ApiGateway] as GATEWAY
+        [CornerShop.ApiGateway.Tests] as GATEWAY_TESTS
+    }
+    
+    package "Microservices" {
+        package "Product Domain" {
+            [CornerShop.ProductService] as PRODUCT_SVC
+            [CornerShop.ProductService.Tests] as PRODUCT_TESTS
+            [CornerShop.StockService] as STOCK_SVC
+            [CornerShop.StockService.Tests] as STOCK_TESTS
+        }
+        
+        package "Customer Domain" {
+            [CornerShop.CustomerService] as CUSTOMER_SVC
+            [CornerShop.CustomerService.Tests] as CUSTOMER_TESTS
+        }
+        
+        package "Order Domain" {
+            [CornerShop.CartService] as CART_SVC
+            [CornerShop.CartService.Tests] as CART_TESTS
+            [CornerShop.OrderService] as ORDER_SVC
+            [CornerShop.OrderService.Tests] as ORDER_TESTS
+            [CornerShop.PaymentService] as PAYMENT_SVC
+            [CornerShop.PaymentService.Tests] as PAYMENT_TESTS
+        }
+        
+        package "Analytics Domain" {
+            [CornerShop.SalesService] as SALES_SVC
+            [CornerShop.SalesService.Tests] as SALES_TESTS
+            [CornerShop.ReportingService] as REPORTING_SVC
+            [CornerShop.ReportingService.Tests] as REPORTING_TESTS
+        }
+    }
+    
+    package "Infrastructure Services" {
+        package "Saga Management" {
+            [CornerShop.SagaOrchestrator] as SAGA_ORCH
+            [CornerShop.SagaOrchestrator.Tests] as SAGA_ORCH_TESTS
+            [CornerShop.ChoreographedSagaCoordinator] as CHOREO_SAGA
+            [CornerShop.ChoreographedSagaCoordinator.Tests] as CHOREO_SAGA_TESTS
+        }
+        
+        package "Event Management" {
+            [CornerShop.EventPublisher] as EVENT_PUB
+            [CornerShop.EventPublisher.Tests] as EVENT_PUB_TESTS
+            [CornerShop.EventStore] as EVENT_STORE
+            [CornerShop.EventStore.Tests] as EVENT_STORE_TESTS
+        }
+        
+        package "Supporting Services" {
+            [CornerShop.NotificationService] as NOTIFICATION_SVC
+            [CornerShop.NotificationService.Tests] as NOTIFICATION_TESTS
+        }
+    }
+    
+    package "Shared Libraries" {
+        [CornerShop.Shared] as SHARED
+        [CornerShop.Shared.Tests] as SHARED_TESTS
+    }
+    
+    package "Infrastructure" {
+        [CornerShop.Infrastructure] as INFRA
+        [CornerShop.Infrastructure.Tests] as INFRA_TESTS
+    }
+}
+
+package "External Dependencies" {
+    [MongoDB.Driver] as MONGO
+    [StackExchange.Redis] as REDIS
+    [prometheus-net] as PROMETHEUS
+    [Swashbuckle.AspNetCore] as SWAGGER
+    [xUnit] as XUNIT
+    [Moq] as MOQ
+}
+
+' Internal dependencies
+WEB --> GATEWAY
+MOBILE --> GATEWAY
+
+GATEWAY --> PRODUCT_SVC
+GATEWAY --> CUSTOMER_SVC
+GATEWAY --> CART_SVC
+GATEWAY --> ORDER_SVC
+GATEWAY --> PAYMENT_SVC
+GATEWAY --> STOCK_SVC
+GATEWAY --> SALES_SVC
+GATEWAY --> REPORTING_SVC
+
+' Service dependencies
+PRODUCT_SVC --> SHARED
+CUSTOMER_SVC --> SHARED
+CART_SVC --> SHARED
+ORDER_SVC --> SHARED
+PAYMENT_SVC --> SHARED
+STOCK_SVC --> SHARED
+SALES_SVC --> SHARED
+REPORTING_SVC --> SHARED
+
+ORDER_SVC --> SAGA_ORCH
+STOCK_SVC --> SAGA_ORCH
+PAYMENT_SVC --> SAGA_ORCH
+
+ORDER_SVC --> CHOREO_SAGA
+STOCK_SVC --> CHOREO_SAGA
+PAYMENT_SVC --> CHOREO_SAGA
+
+ORDER_SVC --> EVENT_PUB
+STOCK_SVC --> EVENT_PUB
+PAYMENT_SVC --> EVENT_PUB
+
+EVENT_PUB --> EVENT_STORE
+CHOREO_SAGA --> EVENT_STORE
+
+ORDER_SVC --> NOTIFICATION_SVC
+
+' Infrastructure dependencies
+SHARED --> INFRA
+PRODUCT_SVC --> INFRA
+CUSTOMER_SVC --> INFRA
+CART_SVC --> INFRA
+ORDER_SVC --> INFRA
+PAYMENT_SVC --> INFRA
+STOCK_SVC --> INFRA
+SALES_SVC --> INFRA
+REPORTING_SVC --> INFRA
+
+' External dependencies
+PRODUCT_SVC --> MONGO
+CUSTOMER_SVC --> MONGO
+ORDER_SVC --> MONGO
+PAYMENT_SVC --> MONGO
+SALES_SVC --> MONGO
+REPORTING_SVC --> MONGO
+
+CART_SVC --> REDIS
+PRODUCT_SVC --> REDIS
+CUSTOMER_SVC --> REDIS
+
+PRODUCT_SVC --> PROMETHEUS
+CUSTOMER_SVC --> PROMETHEUS
+CART_SVC --> PROMETHEUS
+ORDER_SVC --> PROMETHEUS
+PAYMENT_SVC --> PROMETHEUS
+
+PRODUCT_SVC --> SWAGGER
+CUSTOMER_SVC --> SWAGGER
+CART_SVC --> SWAGGER
+ORDER_SVC --> SWAGGER
+PAYMENT_SVC --> SWAGGER
+
+' Test dependencies
+PRODUCT_TESTS --> XUNIT
+CUSTOMER_TESTS --> XUNIT
+CART_TESTS --> XUNIT
+ORDER_TESTS --> XUNIT
+PAYMENT_TESTS --> XUNIT
+
+PRODUCT_TESTS --> MOQ
+CUSTOMER_TESTS --> MOQ
+CART_TESTS --> MOQ
+ORDER_TESTS --> MOQ
+PAYMENT_TESTS --> MOQ
+
+note right of SHARED
+  Shared Library contains:
+  - Common models and DTOs
+  - Shared interfaces
+  - Extension methods
+  - Common utilities
+end note
+
+note right of INFRA
+  Infrastructure contains:
+  - Database configurations
+  - Caching implementations
+  - Event handling
+  - Health checks
+end note
+
+@enduml 

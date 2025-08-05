@@ -5,9 +5,13 @@ EXPOSE 80
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy everything
-COPY services/CartService/ .
+# Copy shared library first for better caching
 COPY shared/ ./shared/
+
+# Copy service-specific files
+COPY services/CartService/ .
+
+# Restore dependencies
 RUN dotnet restore
 
 # Build the application
@@ -19,4 +23,4 @@ RUN dotnet publish -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "CartService.dll"] 
+ENTRYPOINT ["dotnet", "CartService.dll"]

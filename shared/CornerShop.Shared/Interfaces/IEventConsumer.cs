@@ -4,4 +4,4 @@ public interface IEventConsumer
 {
     Task StartConsumingAsync();
     Task StopConsumingAsync();
-} 
+}

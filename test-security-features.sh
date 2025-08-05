@@ -181,7 +181,7 @@ cart_rate_hits=0
 for i in {1..12}; do
     response_code=$(curl -s -o /dev/null -w "%{http_code}" \
         -H "X-API-Key: $API_KEY" \
-        "$BASE_URL/api/cart")
+        "$BASE_URL/api/carts")
     
     if [ "$response_code" = "429" ]; then
         cart_rate_hits=$((cart_rate_hits + 1))

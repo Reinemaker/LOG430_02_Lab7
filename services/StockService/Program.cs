@@ -1,5 +1,7 @@
-using StackExchange.Redis;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
+using CornerShop.Shared.Interfaces;
+using CornerShop.Shared.Models;
+using CornerShop.Shared.Extensions;
+using StockService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,47 +10,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure Redis connection
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    options.InstanceName = "StockService_";
-});
+// Configure shared services
+builder.Services.AddCornerShopRedis(builder.Configuration, "StockService");
+builder.Services.AddCornerShopHealthChecks(builder.Configuration);
+builder.Services.AddCornerShopHttpClient();
 
-// Configure Redis connection multiplexer
-builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    return ConnectionMultiplexer.Connect(connectionString);
-});
-
-// Register saga participant
+// Register service-specific dependencies
 builder.Services.AddScoped<ISagaParticipant, StockSagaParticipant>();
-
-// Register event producer
-builder.Services.AddSingleton<IEventProducer, StockService.Services.EventProducer>();
-
-// Add HTTP client for inter-service communication
-builder.Services.AddHttpClient();
-
-// Add health checks
-builder.Services.AddHealthChecks()
-    .AddRedis(builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379", name: "redis");
+builder.Services.AddSingleton<IEventProducer, EventProducer>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-app.UseAuthorization();
-
-// Configure health checks
-app.MapHealthChecks("/health");
+// Configure shared middleware pipeline
+app.UseCornerShopPipeline(app.Environment);
 
 app.MapControllers();
 

@@ -1,0 +1,244 @@
+@startuml CornerShop Physical View
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam nodeStyle rectangle
+
+title CornerShop - Physical View
+
+node "Client Devices" {
+    [Web Browser] as WB
+    [Mobile App] as MA
+    [API Client] as AC
+}
+
+node "Load Balancer Tier" {
+    [Traefik Load Balancer] as LB
+    [SSL Termination] as SSL
+}
+
+node "API Gateway Tier" {
+    [API Gateway Instance 1] as AG1
+    [API Gateway Instance 2] as AG2
+    [API Gateway Instance 3] as AG3
+}
+
+node "Microservices Tier" {
+    node "Product Services" {
+        [Product Service Instance 1] as PS1
+        [Product Service Instance 2] as PS2
+        [Stock Service Instance 1] as SS1
+        [Stock Service Instance 2] as SS2
+    }
+    
+    node "Customer Services" {
+        [Customer Service Instance 1] as CS1
+        [Customer Service Instance 2] as CS2
+    }
+    
+    node "Order Services" {
+        [Cart Service Instance 1] as CART1
+        [Cart Service Instance 2] as CART2
+        [Cart Service Instance 3] as CART3
+        [Order Service Instance 1] as OS1
+        [Order Service Instance 2] as OS2
+        [Payment Service Instance 1] as PAY1
+        [Payment Service Instance 2] as PAY2
+    }
+    
+    node "Analytics Services" {
+        [Sales Service Instance 1] as SALES1
+        [Sales Service Instance 2] as SALES2
+        [Reporting Service Instance 1] as RS1
+        [Reporting Service Instance 2] as RS2
+    }
+}
+
+node "Infrastructure Services Tier" {
+    node "Saga Management" {
+        [Saga Orchestrator Instance 1] as SO1
+        [Saga Orchestrator Instance 2] as SO2
+        [Choreographed Saga Coordinator Instance 1] as CSC1
+        [Choreographed Saga Coordinator Instance 2] as CSC2
+    }
+    
+    node "Event Management" {
+        [Event Publisher Instance 1] as EP1
+        [Event Publisher Instance 2] as EP2
+        [Event Store Instance 1] as ES1
+        [Event Store Instance 2] as ES2
+        [Event Consumer Instance 1] as EC1
+        [Event Consumer Instance 2] as EC2
+    }
+    
+    node "Supporting Services" {
+        [Notification Service Instance 1] as NS1
+        [Notification Service Instance 2] as NS2
+    }
+}
+
+node "Data Tier" {
+    node "Primary Database" {
+        [MongoDB Primary] as MDB_PRIMARY
+        [MongoDB Secondary 1] as MDB_SEC1
+        [MongoDB Secondary 2] as MDB_SEC2
+        [MongoDB Arbiter] as MDB_ARBITER
+    }
+    
+    node "Cache Layer" {
+        [Redis Master] as REDIS_MASTER
+        [Redis Slave 1] as REDIS_SLAVE1
+        [Redis Slave 2] as REDIS_SLAVE2
+    }
+    
+    node "Event Store" {
+        [Event Store Primary] as EVT_PRIMARY
+        [Event Store Secondary] as EVT_SECONDARY
+    }
+}
+
+node "Monitoring Tier" {
+    [Prometheus] as PROM
+    [Grafana] as GRAFANA
+    [Alert Manager] as ALERT
+}
+
+' Client to Load Balancer
+WB --> LB : HTTPS
+MA --> LB : HTTPS
+AC --> LB : HTTPS
+
+' Load Balancer to Gateway
+LB --> SSL : SSL Termination
+SSL --> AG1 : HTTP
+SSL --> AG2 : HTTP
+SSL --> AG3 : HTTP
+
+' Gateway to Services
+AG1 --> PS1 : HTTP
+AG1 --> PS2 : HTTP
+AG2 --> CS1 : HTTP
+AG2 --> CS2 : HTTP
+AG3 --> CART1 : HTTP
+AG3 --> CART2 : HTTP
+AG3 --> CART3 : HTTP
+
+AG1 --> OS1 : HTTP
+AG1 --> OS2 : HTTP
+AG2 --> PAY1 : HTTP
+AG2 --> PAY2 : HTTP
+AG3 --> SS1 : HTTP
+AG3 --> SS2 : HTTP
+
+AG1 --> SALES1 : HTTP
+AG1 --> SALES2 : HTTP
+AG2 --> RS1 : HTTP
+AG2 --> RS2 : HTTP
+
+' Service to Infrastructure
+OS1 --> SO1 : HTTP
+OS2 --> SO2 : HTTP
+SS1 --> SO1 : HTTP
+SS2 --> SO2 : HTTP
+PAY1 --> SO1 : HTTP
+PAY2 --> SO2 : HTTP
+
+OS1 --> CSC1 : HTTP
+OS2 --> CSC2 : HTTP
+SS1 --> CSC1 : HTTP
+SS2 --> CSC2 : HTTP
+PAY1 --> CSC1 : HTTP
+PAY2 --> CSC2 : HTTP
+
+OS1 --> EP1 : HTTP
+OS2 --> EP2 : HTTP
+SS1 --> EP1 : HTTP
+SS2 --> EP2 : HTTP
+PAY1 --> EP1 : HTTP
+PAY2 --> EP2 : HTTP
+
+EP1 --> ES1 : HTTP
+EP2 --> ES2 : HTTP
+ES1 --> EC1 : HTTP
+ES2 --> EC2 : HTTP
+
+OS1 --> NS1 : HTTP
+OS2 --> NS2 : HTTP
+
+' Data connections
+PS1 --> MDB_PRIMARY : MongoDB
+PS2 --> MDB_PRIMARY : MongoDB
+CS1 --> MDB_PRIMARY : MongoDB
+CS2 --> MDB_PRIMARY : MongoDB
+OS1 --> MDB_PRIMARY : MongoDB
+OS2 --> MDB_PRIMARY : MongoDB
+PAY1 --> MDB_PRIMARY : MongoDB
+PAY2 --> MDB_PRIMARY : MongoDB
+SALES1 --> MDB_PRIMARY : MongoDB
+SALES2 --> MDB_PRIMARY : MongoDB
+RS1 --> MDB_PRIMARY : MongoDB
+RS2 --> MDB_PRIMARY : MongoDB
+
+CART1 --> REDIS_MASTER : Redis
+CART2 --> REDIS_MASTER : Redis
+CART3 --> REDIS_MASTER : Redis
+PS1 --> REDIS_MASTER : Redis
+PS2 --> REDIS_MASTER : Redis
+CS1 --> REDIS_MASTER : Redis
+CS2 --> REDIS_MASTER : Redis
+
+ES1 --> EVT_PRIMARY : Event Store
+ES2 --> EVT_PRIMARY : Event Store
+CSC1 --> EVT_PRIMARY : Event Store
+CSC2 --> EVT_PRIMARY : Event Store
+
+' Monitoring connections
+PS1 --> PROM : Metrics
+PS2 --> PROM : Metrics
+CS1 --> PROM : Metrics
+CS2 --> PROM : Metrics
+CART1 --> PROM : Metrics
+CART2 --> PROM : Metrics
+CART3 --> PROM : Metrics
+OS1 --> PROM : Metrics
+OS2 --> PROM : Metrics
+PAY1 --> PROM : Metrics
+PAY2 --> PROM : Metrics
+
+PROM --> GRAFANA : Data
+PROM --> ALERT : Alerts
+
+' Database replication
+MDB_PRIMARY --> MDB_SEC1 : Replication
+MDB_PRIMARY --> MDB_SEC2 : Replication
+MDB_PRIMARY --> MDB_ARBITER : Heartbeat
+
+REDIS_MASTER --> REDIS_SLAVE1 : Replication
+REDIS_MASTER --> REDIS_SLAVE2 : Replication
+
+EVT_PRIMARY --> EVT_SECONDARY : Replication
+
+note right of LB
+  Load Balancer:
+  - Distributes traffic
+  - Handles SSL termination
+  - Provides health checks
+  - Supports multiple protocols
+end note
+
+note right of MDB_PRIMARY
+  MongoDB Cluster:
+  - Primary for writes
+  - Secondaries for reads
+  - Automatic failover
+  - Data replication
+end note
+
+note right of REDIS_MASTER
+  Redis Cluster:
+  - Master for writes
+  - Slaves for reads
+  - Automatic failover
+  - Data persistence
+end note
+
+@enduml 

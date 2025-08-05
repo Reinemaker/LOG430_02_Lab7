@@ -62,7 +62,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start success saga");
-            return StatusCode(500, new { Error = "Failed to start saga", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to start saga", ex.Message });
         }
     }
 
@@ -101,7 +101,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start failure saga");
-            return StatusCode(500, new { Error = "Failed to start saga", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to start saga", ex.Message });
         }
     }
 
@@ -112,7 +112,7 @@ public class SagaTestController : ControllerBase
         {
             var stepData = new
             {
-                StepName = request.StepName,
+                request.StepName,
                 CompletedAt = DateTime.UtcNow,
                 Data = request.StepData
             };
@@ -126,16 +126,16 @@ public class SagaTestController : ControllerBase
             return Ok(new
             {
                 Message = "Step completion simulated",
-                SagaId = request.SagaId,
-                StepName = request.StepName,
-                StepNumber = request.StepNumber,
+                request.SagaId,
+                request.StepName,
+                request.StepNumber,
                 Timestamp = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to simulate step completion");
-            return StatusCode(500, new { Error = "Failed to simulate step", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to simulate step", ex.Message });
         }
     }
 
@@ -146,9 +146,9 @@ public class SagaTestController : ControllerBase
         {
             var stepData = new
             {
-                StepName = request.StepName,
+                request.StepName,
                 FailedAt = DateTime.UtcNow,
-                ErrorMessage = request.ErrorMessage
+                request.ErrorMessage
             };
 
             await _sagaOrchestrator.HandleSagaStepFailedAsync(
@@ -161,17 +161,17 @@ public class SagaTestController : ControllerBase
             return Ok(new
             {
                 Message = "Step failure simulated",
-                SagaId = request.SagaId,
-                StepName = request.StepName,
-                StepNumber = request.StepNumber,
-                ErrorMessage = request.ErrorMessage,
+                request.SagaId,
+                request.StepName,
+                request.StepNumber,
+                request.ErrorMessage,
                 Timestamp = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to simulate step failure");
-            return StatusCode(500, new { Error = "Failed to simulate failure", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to simulate failure", ex.Message });
         }
     }
 
@@ -188,16 +188,16 @@ public class SagaTestController : ControllerBase
             return Ok(new
             {
                 Message = "Compensation completion simulated",
-                SagaId = request.SagaId,
-                StepName = request.StepName,
-                StepNumber = request.StepNumber,
+                request.SagaId,
+                request.StepName,
+                request.StepNumber,
                 Timestamp = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to simulate compensation completion");
-            return StatusCode(500, new { Error = "Failed to simulate compensation", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to simulate compensation", ex.Message });
         }
     }
 
@@ -217,7 +217,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get saga state");
-            return StatusCode(500, new { Error = "Failed to get saga state", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to get saga state", ex.Message });
         }
     }
 
@@ -232,7 +232,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get saga states by order ID");
-            return StatusCode(500, new { Error = "Failed to get saga states", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to get saga states", ex.Message });
         }
     }
 
@@ -296,7 +296,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to run complete success scenario");
-            return StatusCode(500, new { Error = "Failed to run scenario", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to run scenario", ex.Message });
         }
     }
 
@@ -357,7 +357,7 @@ public class SagaTestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to run complete failure scenario");
-            return StatusCode(500, new { Error = "Failed to run scenario", Message = ex.Message });
+            return StatusCode(500, new { Error = "Failed to run scenario", ex.Message });
         }
     }
 }
@@ -391,4 +391,4 @@ public class SimulateCompensationRequest
     public string SagaId { get; set; } = string.Empty;
     public string StepName { get; set; } = string.Empty;
     public int StepNumber { get; set; }
-} 
+}

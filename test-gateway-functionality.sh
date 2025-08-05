@@ -131,13 +131,13 @@ test_endpoint "/health" "Gateway Health Check" "GET" "" 200
 echo -e "\n${YELLOW}=== AUTHENTICATION TESTS ===${NC}"
 test_authentication "/api/products" "Products endpoint authentication"
 test_authentication "/api/customers" "Customers endpoint authentication"
-test_authentication "/api/cart" "Cart endpoint authentication"
+test_authentication "/api/carts" "Cart endpoint authentication"
 test_authentication "/api/orders" "Orders endpoint authentication"
 
 echo -e "\n${YELLOW}=== API ENDPOINT TESTS ===${NC}"
 test_endpoint "/api/products" "Get Products"
 test_endpoint "/api/customers" "Get Customers"
-test_endpoint "/api/cart" "Get Cart (requires customerId parameter)"
+test_endpoint "/api/carts" "Get Cart (requires customerId parameter)"
 test_endpoint "/api/orders" "Get Orders"
 
 echo -e "\n${YELLOW}=== ERROR HANDLING TESTS ===${NC}"

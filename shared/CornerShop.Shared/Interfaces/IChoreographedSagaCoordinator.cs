@@ -15,4 +15,4 @@ public interface IChoreographedSagaCoordinator
     Task HandlePaymentRefundedEventAsync(PaymentRefundedEvent paymentRefundedEvent);
     Task<ChoreographedSagaState?> GetSagaStateAsync(string sagaId);
     Task<List<ChoreographedSagaState>> GetAllSagaStatesAsync();
-} 
+}

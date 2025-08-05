@@ -1,0 +1,131 @@
+@startuml CornerShop Add Item to Cart Sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+    ArrowColor #2E86AB
+    LifeLineBorderColor #2E86AB
+    ParticipantBorderColor #2E86AB
+    ParticipantBackgroundColor #F0F8FF
+}
+
+title CornerShop - Add Item to Cart Sequence Diagram
+
+actor "Customer" as CUST
+participant "Web Client" as WC
+participant "API Gateway" as AG
+participant "Cart Controller" as CC
+participant "Cart Service" as CS
+participant "Product Service" as PS
+participant "Customer Service" as CUS
+participant "Cache Service" as CACHE
+participant "Redis Cache" as REDIS
+participant "MongoDB" as DB
+
+== Initial Request ==
+CUST -> WC: Click "Add to Cart" button
+WC -> WC: Validate form data
+WC -> AG: POST /api/v1/cart/items
+note right: {productId: "prod-123", quantity: 2, customerId: "cust-456"}
+
+== API Gateway Processing ==
+AG -> AG: Validate API key
+AG -> AG: Rate limiting check
+AG -> AG: Route to Cart Service
+AG -> CC: Forward request
+
+== Cart Controller Processing ==
+CC -> CC: Validate request model
+CC -> CC: Extract customer ID from token
+CC -> CS: AddItemToCart(customerId, productId, quantity)
+
+== Cart Service Validation ==
+CS -> CUS: ValidateCustomer(customerId)
+CUS -> DB: Get customer by ID
+DB --> CUS: Customer data
+CUS -> CUS: Validate customer is active
+CUS --> CS: Customer validation result
+
+alt Customer not found or inactive
+    CS --> CC: InvalidCustomerException
+    CC --> AG: 400 Bad Request
+    AG --> WC: Error response
+    WC --> CUST: Show error message
+else Customer is valid
+    CS -> PS: ValidateProductAvailability(productId, quantity)
+    PS -> DB: Get product by ID
+    DB --> PS: Product data
+    PS -> PS: Check stock availability
+    PS -> PS: Validate product is active
+    
+    alt Product not found or insufficient stock
+        PS --> CS: ProductNotFoundException or InsufficientStockException
+        CS --> CC: Exception
+        CC --> AG: 400 Bad Request
+        AG --> WC: Error response
+        WC --> CUST: Show error message
+    else Product is available
+        PS --> CS: Product validation successful
+        
+        == Cart Retrieval/Creation ==
+        CS -> CACHE: Get cart from cache
+        CACHE -> REDIS: GET cart:{customerId}
+        REDIS --> CACHE: Cart data or null
+        
+        alt Cart exists in cache
+            CACHE --> CS: Existing cart
+            CS -> CS: Parse cart data
+        else Cart doesn't exist
+            CACHE --> CS: null
+            CS -> CS: Create new cart
+            CS -> CS: Set cart ID and timestamps
+        end
+        
+        == Add Item to Cart ==
+        CS -> CS: Create or update cart item
+        CS -> CS: Calculate item total price
+        CS -> CS: Add item to cart
+        CS -> CS: Recalculate cart total
+        CS -> CS: Update cart timestamps
+        
+        == Save Cart ==
+        CS -> CACHE: Save cart to cache
+        CACHE -> REDIS: SET cart:{customerId} with expiration
+        REDIS --> CACHE: Success
+        CACHE --> CS: Cart saved successfully
+        
+        == Return Response ==
+        CS -> CS: Create cart response DTO
+        CS --> CC: Cart with updated items
+        CC -> CC: Map to API response
+        CC --> AG: 200 OK with cart data
+        AG --> WC: Success response
+        WC -> WC: Update cart display
+        WC --> CUST: Show updated cart
+        
+        == Optional: Update Product Cache ==
+        PS -> CACHE: Invalidate product cache
+        CACHE -> REDIS: DEL product:{productId}
+        REDIS --> CACHE: Success
+    end
+end
+
+== Error Handling ==
+note over CS, DB
+  Error Scenarios:
+  - Customer not found
+  - Product not found
+  - Insufficient stock
+  - Cache unavailable
+  - Database connection issues
+end note
+
+== Success Response ==
+note over WC, CUST
+  Success Response includes:
+  - Updated cart with new item
+  - Total amount
+  - Item count
+  - Cart expiration time
+end note
+
+@enduml 

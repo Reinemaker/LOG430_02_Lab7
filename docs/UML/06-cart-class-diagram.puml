@@ -1,0 +1,259 @@
+@startuml CornerShop Cart Class Diagram
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam class {
+    BackgroundColor #F0F8FF
+    BorderColor #2E86AB
+    ArrowColor #2E86AB
+}
+
+title CornerShop - Cart Class Diagram (Add Item to Cart)
+
+package "Cart Domain" {
+    class Cart {
+        +Id: string
+        +CustomerId: string
+        +StoreId: string
+        +Items: List<CartItem>
+        +TotalAmount: decimal
+        +CreatedAt: DateTime
+        +UpdatedAt: DateTime
+        +ExpiresAt: DateTime
+        --
+        +AddItem(item: CartItem): void
+        +RemoveItem(productId: string): void
+        +UpdateQuantity(productId: string, quantity: int): void
+        +Clear(): void
+        +CalculateTotal(): decimal
+        +IsExpired(): bool
+    }
+    
+    class CartItem {
+        +Id: string
+        +ProductId: string
+        +ProductName: string
+        +Quantity: int
+        +UnitPrice: decimal
+        +TotalPrice: decimal
+        +AddedAt: DateTime
+        --
+        +UpdateQuantity(quantity: int): void
+        +CalculateTotal(): decimal
+    }
+    
+    class CartService {
+        +_cartRepository: ICartRepository
+        +_productService: IProductService
+        +_customerService: ICustomerService
+        +_cacheService: ICacheService
+        --
+        +GetCart(customerId: string): Task<Cart>
+        +AddItemToCart(customerId: string, productId: string, quantity: int): Task<Cart>
+        +RemoveItemFromCart(customerId: string, productId: string): Task<Cart>
+        +UpdateCartItemQuantity(customerId: string, productId: string, quantity: int): Task<Cart>
+        +ClearCart(customerId: string): Task<void>
+        +ValidateCart(cart: Cart): Task<bool>
+        +CalculateCartTotal(cart: Cart): decimal
+    }
+}
+
+package "Product Domain" {
+    class Product {
+        +Id: string
+        +Name: string
+        +Description: string
+        +Category: string
+        +Price: decimal
+        +StockQuantity: int
+        +MinimumStockLevel: int
+        +StoreId: string
+        +IsActive: bool
+        +CreatedAt: DateTime
+        +UpdatedAt: DateTime
+        --
+        +IsInStock(): bool
+        +HasSufficientStock(quantity: int): bool
+        +UpdateStock(quantity: int): void
+    }
+    
+    class ProductService {
+        +_productRepository: IProductRepository
+        +_cacheService: ICacheService
+        --
+        +GetProduct(id: string): Task<Product>
+        +GetProducts(): Task<List<Product>>
+        +SearchProducts(searchTerm: string): Task<List<Product>>
+        +ValidateProductAvailability(productId: string, quantity: int): Task<bool>
+    }
+}
+
+package "Customer Domain" {
+    class Customer {
+        +Id: string
+        +Name: string
+        +Email: string
+        +Phone: string
+        +Address: string
+        +IsActive: bool
+        +CreatedAt: DateTime
+        +UpdatedAt: DateTime
+        --
+        +IsValid(): bool
+    }
+    
+    class CustomerService {
+        +_customerRepository: ICustomerRepository
+        +_cacheService: ICacheService
+        --
+        +GetCustomer(id: string): Task<Customer>
+        +ValidateCustomer(customerId: string): Task<bool>
+    }
+}
+
+package "Infrastructure" {
+    interface ICartRepository {
+        +GetById(id: string): Task<Cart>
+        +GetByCustomerId(customerId: string): Task<Cart>
+        +Save(cart: Cart): Task<void>
+        +Delete(id: string): Task<void>
+    }
+    
+    interface IProductRepository {
+        +GetById(id: string): Task<Product>
+        +GetAll(): Task<List<Product>>
+        +Search(searchTerm: string): Task<List<Product>>
+    }
+    
+    interface ICustomerRepository {
+        +GetById(id: string): Task<Customer>
+        +Validate(id: string): Task<bool>
+    }
+    
+    interface ICacheService {
+        +Get<T>(key: string): Task<T>
+        +Set<T>(key: string, value: T, expiration: TimeSpan): Task<void>
+        +Remove(key: string): Task<void>
+    }
+}
+
+package "Controllers" {
+    class CartController {
+        +_cartService: ICartService
+        +_logger: ILogger<CartController>
+        --
+        +GetCart(): Task<IActionResult>
+        +AddItemToCart(request: AddItemToCartRequest): Task<IActionResult>
+        +RemoveItemFromCart(productId: string): Task<IActionResult>
+        +UpdateItemQuantity(request: UpdateItemQuantityRequest): Task<IActionResult>
+        +ClearCart(): Task<IActionResult>
+    }
+}
+
+package "DTOs" {
+    class AddItemToCartRequest {
+        +ProductId: string
+        +Quantity: int
+        +CustomerId: string
+    }
+    
+    class UpdateItemQuantityRequest {
+        +ProductId: string
+        +Quantity: int
+    }
+    
+    class CartResponse {
+        +Id: string
+        +CustomerId: string
+        +Items: List<CartItemResponse>
+        +TotalAmount: decimal
+        +ItemCount: int
+        +ExpiresAt: DateTime
+    }
+    
+    class CartItemResponse {
+        +Id: string
+        +ProductId: string
+        +ProductName: string
+        +Quantity: int
+        +UnitPrice: decimal
+        +TotalPrice: decimal
+    }
+}
+
+package "Exceptions" {
+    class CartException {
+        +Message: string
+        +ErrorCode: string
+    }
+    
+    class ProductNotFoundException {
+        +ProductId: string
+    }
+    
+    class InsufficientStockException {
+        +ProductId: string
+        +RequestedQuantity: int
+        +AvailableQuantity: int
+    }
+    
+    class InvalidCustomerException {
+        +CustomerId: string
+    }
+}
+
+' Relationships
+Cart ||--o{ CartItem : contains
+CartService --> ICartRepository : uses
+CartService --> IProductService : uses
+CartService --> ICustomerService : uses
+CartService --> ICacheService : uses
+
+ProductService --> IProductRepository : uses
+ProductService --> ICacheService : uses
+
+CustomerService --> ICustomerRepository : uses
+CustomerService --> ICacheService : uses
+
+CartController --> CartService : uses
+CartController --> AddItemToCartRequest : receives
+CartController --> CartResponse : returns
+
+CartService ..> Product : validates
+CartService ..> Customer : validates
+CartService ..> Cart : manages
+
+' Exception relationships
+CartService ..> CartException : throws
+CartService ..> ProductNotFoundException : throws
+CartService ..> InsufficientStockException : throws
+CartService ..> InvalidCustomerException : throws
+
+note right of CartService
+  AddItemToCart Flow:
+  1. Validate customer exists
+  2. Validate product exists
+  3. Check product availability
+  4. Get or create cart
+  5. Add/update item
+  6. Calculate total
+  7. Save to cache
+  8. Return updated cart
+end note
+
+note right of Cart
+  Cart Lifecycle:
+  - Created when first item added
+  - Stored in Redis cache
+  - Expires after 24 hours
+  - Can be cleared manually
+end note
+
+note right of Product
+  Product Validation:
+  - Must be active
+  - Must have sufficient stock
+  - Price must be valid
+  - Store must be valid
+end note
+
+@enduml 

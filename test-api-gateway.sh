@@ -108,7 +108,7 @@ test_endpoint "/api/products" "Get Products"
 test_endpoint "/api/customers" "Get Customers"
 
 # Test 4: Cart endpoint with valid API key
-test_endpoint "/api/cart" "Get Cart"
+test_endpoint "/api/carts" "Get Cart"
 
 # Test 5: Orders endpoint with valid API key
 test_endpoint "/api/orders" "Get Orders"

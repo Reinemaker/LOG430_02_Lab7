@@ -1,5 +1,7 @@
-using MongoDB.Driver;
-using Prometheus;
+using CornerShop.Shared.Interfaces;
+using CornerShop.Shared.Models;
+using CornerShop.Shared.Extensions;
+using ReportingService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,35 +10,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure MongoDB
-var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB") ?? "mongodb://localhost:27017";
-var mongoClient = new MongoClient(mongoConnectionString);
-var database = mongoClient.GetDatabase("cornerShop");
-
-builder.Services.AddSingleton<IMongoDatabase>(database);
-
-// Add health checks
-builder.Services.AddHealthChecks()
-    .AddMongoDb(mongoConnectionString, name: "mongodb");
+// Configure shared services
+builder.Services.AddCornerShopRedis(builder.Configuration, "ReportingService");
+builder.Services.AddCornerShopHealthChecks(builder.Configuration);
+builder.Services.AddCornerShopHttpClient();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-app.UseAuthorization();
-
-// Configure Prometheus metrics
-app.UseMetricServer();
-app.UseHttpMetrics();
-
-// Configure health checks
-app.MapHealthChecks("/health");
+// Configure shared middleware pipeline
+app.UseCornerShopPipeline(app.Environment);
 
 app.MapControllers();
 

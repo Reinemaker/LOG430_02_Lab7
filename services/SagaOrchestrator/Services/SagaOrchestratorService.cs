@@ -28,7 +28,7 @@ public class SagaOrchestratorService : ISagaOrchestratorService
         _sagaStates = database.GetCollection<SagaState>("sagaStates");
         _eventPublisher = eventPublisher;
         _logger = logger;
-        
+
         CreateIndexes();
     }
 
@@ -50,7 +50,7 @@ public class SagaOrchestratorService : ISagaOrchestratorService
     public async Task StartOrderSagaAsync(string orderId, string customerId, decimal totalAmount, List<OrderItem> items)
     {
         var sagaId = Guid.NewGuid().ToString();
-        
+
         _logger.LogInformation("Starting Order Saga: {SagaId} for Order: {OrderId}", sagaId, orderId);
 
         // Create saga state

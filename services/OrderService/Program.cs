@@ -1,49 +1,30 @@
 using CornerShop.Shared.Interfaces;
+using CornerShop.Shared.Models;
+using CornerShop.Shared.Extensions;
 using OrderService.Services;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
-using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure Redis
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    options.InstanceName = "OrderService_";
-});
+// Configure shared services
+builder.Services.AddCornerShopRedis(builder.Configuration, "OrderService");
+builder.Services.AddCornerShopHealthChecks(builder.Configuration);
+builder.Services.AddCornerShopHttpClient();
 
-// Configure Redis Connection for Streams
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-{
-    var configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    return ConnectionMultiplexer.Connect(configuration);
-});
-
-// Register saga participation services
+// Register service-specific dependencies
 builder.Services.AddScoped<ISagaParticipant, OrderSagaParticipant>();
-builder.Services.AddSingleton<IEventProducer, EventProducer>();
-
-// Register order services
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddSingleton<IEventProducer, EventProducer>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Configure shared middleware pipeline
+app.UseCornerShopPipeline(app.Environment);
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
-
-// Map controllers
 app.MapControllers();
 
 app.Run();

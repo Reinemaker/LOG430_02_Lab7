@@ -74,4 +74,4 @@ public class OrderItemReadModel
 
     [BsonElement("totalPrice")]
     public decimal TotalPrice { get; set; }
-} 
+}

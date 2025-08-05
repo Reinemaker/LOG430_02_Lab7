@@ -1,0 +1,186 @@
+@startuml CornerShop Use Case View
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2E86AB
+}
+
+title CornerShop - Use Case View
+
+actor "Customer" as CUST
+actor "Store Manager" as MANAGER
+actor "System Administrator" as ADMIN
+actor "Payment Gateway" as PAYMENT
+actor "Inventory System" as INVENTORY
+
+rectangle "CornerShop System" {
+    package "Product Management" {
+        usecase "Browse Products" as UC1
+        usecase "Search Products" as UC2
+        usecase "View Product Details" as UC3
+        usecase "Add Product" as UC4
+        usecase "Update Product" as UC5
+        usecase "Delete Product" as UC6
+        usecase "Manage Inventory" as UC7
+    }
+    
+    package "Customer Management" {
+        usecase "Register Customer" as UC8
+        usecase "Login Customer" as UC9
+        usecase "View Customer Profile" as UC10
+        usecase "Update Customer Profile" as UC11
+        usecase "View Order History" as UC12
+    }
+    
+    package "Shopping Cart" {
+        usecase "Add Item to Cart" as UC13
+        usecase "Remove Item from Cart" as UC14
+        usecase "Update Cart Quantity" as UC15
+        usecase "View Cart" as UC16
+        usecase "Clear Cart" as UC17
+    }
+    
+    package "Order Management" {
+        usecase "Create Order" as UC18
+        usecase "Process Payment" as UC19
+        usecase "Confirm Order" as UC20
+        usecase "Cancel Order" as UC21
+        usecase "Track Order Status" as UC22
+        usecase "View Order Details" as UC23
+    }
+    
+    package "Sales & Analytics" {
+        usecase "Generate Sales Report" as UC24
+        usecase "View Sales Analytics" as UC25
+        usecase "Export Sales Data" as UC26
+        usecase "View Top Products" as UC27
+        usecase "Monitor Inventory Levels" as UC28
+    }
+    
+    package "System Administration" {
+        usecase "Manage Users" as UC29
+        usecase "Configure System Settings" as UC30
+        usecase "Monitor System Health" as UC31
+        usecase "Backup Data" as UC32
+        usecase "View System Logs" as UC33
+    }
+    
+    package "Saga Management" {
+        usecase "Orchestrate Order Saga" as UC34
+        usecase "Handle Saga Compensation" as UC35
+        usecase "Monitor Saga Status" as UC36
+        usecase "Process Event-Driven Saga" as UC37
+    }
+    
+    package "Event Management" {
+        usecase "Publish Business Events" as UC38
+        usecase "Consume Business Events" as UC39
+        usecase "Store Events" as UC40
+        usecase "Replay Events" as UC41
+    }
+}
+
+' Customer relationships
+CUST --> UC1
+CUST --> UC2
+CUST --> UC3
+CUST --> UC8
+CUST --> UC9
+CUST --> UC10
+CUST --> UC11
+CUST --> UC12
+CUST --> UC13
+CUST --> UC14
+CUST --> UC15
+CUST --> UC16
+CUST --> UC17
+CUST --> UC18
+CUST --> UC19
+CUST --> UC22
+CUST --> UC23
+
+' Manager relationships
+MANAGER --> UC4
+MANAGER --> UC5
+MANAGER --> UC6
+MANAGER --> UC7
+MANAGER --> UC24
+MANAGER --> UC25
+MANAGER --> UC26
+MANAGER --> UC27
+MANAGER --> UC28
+MANAGER --> UC20
+MANAGER --> UC21
+
+' Admin relationships
+ADMIN --> UC29
+ADMIN --> UC30
+ADMIN --> UC31
+ADMIN --> UC32
+ADMIN --> UC33
+ADMIN --> UC36
+
+' External system relationships
+PAYMENT --> UC19
+INVENTORY --> UC7
+
+' System relationships (internal)
+UC18 ..> UC34 : <<include>>
+UC19 ..> UC34 : <<include>>
+UC20 ..> UC34 : <<include>>
+UC21 ..> UC35 : <<include>>
+
+UC18 ..> UC38 : <<include>>
+UC19 ..> UC38 : <<include>>
+UC20 ..> UC38 : <<include>>
+UC21 ..> UC38 : <<include>>
+
+UC38 ..> UC40 : <<include>>
+UC39 ..> UC40 : <<include>>
+
+UC34 ..> UC37 : <<extend>>
+UC37 ..> UC39 : <<include>>
+
+' Include relationships
+UC13 ..> UC3 : <<include>>
+UC18 ..> UC16 : <<include>>
+UC18 ..> UC19 : <<include>>
+UC19 ..> UC20 : <<include>>
+
+UC24 ..> UC25 : <<include>>
+UC25 ..> UC27 : <<include>>
+UC25 ..> UC28 : <<include>>
+
+' Extend relationships
+UC2 ..> UC1 : <<extend>>
+UC15 ..> UC16 : <<extend>>
+UC22 ..> UC23 : <<extend>>
+
+note right of UC13
+  Add Item to Cart:
+  - Validate product availability
+  - Check stock levels
+  - Update cart in Redis
+  - Return updated cart
+end note
+
+note right of UC18
+  Create Order:
+  - Validate cart contents
+  - Reserve inventory
+  - Process payment
+  - Send notifications
+  - Update sales data
+end note
+
+note right of UC34
+  Order Saga:
+  - Create order
+  - Reserve stock
+  - Process payment
+  - Confirm order
+  - Handle compensation on failure
+end note
+
+@enduml 

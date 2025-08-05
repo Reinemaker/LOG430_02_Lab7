@@ -1,0 +1,111 @@
+@startuml CornerShop Process View
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title CornerShop - Process View
+
+package "Client Processes" {
+    [Web Browser Process] as WBP
+    [Mobile App Process] as MAP
+    [API Client Process] as ACP
+}
+
+package "Gateway Processes" {
+    [API Gateway Process] as AGP
+    [Load Balancer Process] as LBP
+    [Rate Limiter Process] as RLP
+    [Authentication Process] as AUTHP
+}
+
+package "Service Processes" {
+    [Product Service Process] as PSP
+    [Customer Service Process] as CSP
+    [Cart Service Process] as CARTP
+    [Order Service Process] as OSP
+    [Payment Service Process] as PAYP
+    [Stock Service Process] as SSP
+    [Sales Service Process] as SALESP
+    [Reporting Service Process] as RSP
+}
+
+package "Infrastructure Processes" {
+    [Saga Orchestrator Process] as SOP
+    [Choreographed Saga Coordinator Process] as CSCP
+    [Event Publisher Process] as EPP
+    [Event Consumer Process] as ECP
+    [Notification Service Process] as NSP
+}
+
+package "Data Processes" {
+    [MongoDB Process] as MDBP
+    [Redis Process] as REDISP
+    [Event Store Process] as EVTSTOREP
+}
+
+' Client to Gateway process interactions
+WBP --> AGP : HTTP Request
+MAP --> AGP : HTTP Request
+ACP --> AGP : HTTP Request
+
+' Gateway process flow
+AGP --> LBP : Route Request
+LBP --> RLP : Check Rate Limit
+RLP --> AUTHP : Validate Authentication
+AUTHP --> AGP : Return Response
+
+' Service process interactions for typical flow
+AGP --> PSP : Get Products
+AGP --> CSP : Get Customer Info
+AGP --> CARTP : Add to Cart
+AGP --> OSP : Create Order
+
+' Order processing flow
+OSP --> SSP : Reserve Stock
+OSP --> PAYP : Process Payment
+OSP --> NSP : Send Notifications
+
+' Saga process interactions
+OSP --> SOP : Start Saga
+SOP --> SSP : Reserve Stock Step
+SOP --> PAYP : Process Payment Step
+SOP --> OSP : Confirm Order Step
+
+' Event-driven process interactions
+OSP --> EPP : Publish OrderCreated Event
+EPP --> EVTSTOREP : Store Event
+EVTSTOREP --> ECP : Consume Event
+ECP --> CSCP : Process Event
+CSCP --> SALESP : Update Sales Data
+
+' Data process interactions
+PSP --> MDBP : Read/Write Products
+CSP --> MDBP : Read/Write Customers
+OSP --> MDBP : Read/Write Orders
+CARTP --> REDISP : Cache Cart Data
+
+' Process lifecycle
+note right of AGP
+  API Gateway Process:
+  - Handles incoming requests
+  - Routes to appropriate services
+  - Manages authentication
+  - Applies rate limiting
+end note
+
+note right of OSP
+  Order Service Process:
+  - Manages order lifecycle
+  - Coordinates with other services
+  - Participates in saga orchestration
+  - Publishes business events
+end note
+
+note right of SOP
+  Saga Orchestrator Process:
+  - Manages distributed transactions
+  - Handles compensation logic
+  - Tracks saga state
+  - Coordinates service interactions
+end note
+
+@enduml 

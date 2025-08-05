@@ -1,0 +1,124 @@
+@startuml CornerShop Logical View
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+
+title CornerShop - Logical View
+
+package "Client Layer" {
+    [Web Client] as WC
+    [Mobile App] as MA
+    [API Client] as AC
+}
+
+package "API Gateway Layer" {
+    [API Gateway] as AG
+    [Load Balancer] as LB
+    [Rate Limiter] as RL
+    [Authentication] as AUTH
+}
+
+package "Microservices Layer" {
+    package "Product Domain" {
+        [Product Service] as PS
+        [Stock Service] as SS
+    }
+    
+    package "Customer Domain" {
+        [Customer Service] as CS
+    }
+    
+    package "Order Domain" {
+        [Cart Service] as CART
+        [Order Service] as OS
+        [Payment Service] as PAY
+    }
+    
+    package "Analytics Domain" {
+        [Sales Service] as SALES
+        [Reporting Service] as RS
+    }
+}
+
+package "Infrastructure Layer" {
+    package "Saga Management" {
+        [Saga Orchestrator] as SO
+        [Choreographed Saga Coordinator] as CSC
+    }
+    
+    package "Event Management" {
+        [Event Publisher] as EP
+        [Event Store] as ES
+        [Event Consumer] as EC
+    }
+    
+    package "Supporting Services" {
+        [Notification Service] as NS
+    }
+}
+
+package "Data Layer" {
+    database "MongoDB" as MDB
+    database "Redis Cache" as REDIS
+    database "Event Store" as EVTSTORE
+}
+
+' Client to Gateway connections
+WC --> AG : HTTP/HTTPS
+MA --> AG : HTTP/HTTPS
+AC --> AG : HTTP/HTTPS
+
+' Gateway internal connections
+AG --> LB : Internal
+LB --> RL : Internal
+RL --> AUTH : Internal
+
+' Gateway to Services
+AUTH --> PS : HTTP
+AUTH --> CS : HTTP
+AUTH --> CART : HTTP
+AUTH --> OS : HTTP
+AUTH --> PAY : HTTP
+AUTH --> SS : HTTP
+AUTH --> SALES : HTTP
+AUTH --> RS : HTTP
+
+' Service to Service communication
+CART --> PS : Get Product Info
+CART --> CS : Get Customer Info
+OS --> SS : Reserve Stock
+OS --> PAY : Process Payment
+OS --> NS : Send Notifications
+
+' Saga connections
+OS --> SO : Participate in Saga
+SS --> SO : Participate in Saga
+PAY --> SO : Participate in Saga
+OS --> CSC : Event-driven Saga
+SS --> CSC : Event-driven Saga
+PAY --> CSC : Event-driven Saga
+
+' Event connections
+OS --> EP : Publish Events
+SS --> EP : Publish Events
+PAY --> EP : Publish Events
+EP --> ES : Store Events
+ES --> EC : Consume Events
+EC --> CSC : Process Events
+
+' Data connections
+PS --> MDB : Read/Write Products
+CS --> MDB : Read/Write Customers
+OS --> MDB : Read/Write Orders
+PAY --> MDB : Read/Write Payments
+SALES --> MDB : Read Sales Data
+RS --> MDB : Read Data for Reports
+
+CART --> REDIS : Cache Cart Data
+PS --> REDIS : Cache Product Data
+CS --> REDIS : Cache Customer Data
+
+ES --> EVTSTORE : Store Events
+CSC --> EVTSTORE : Read Events
+
+@enduml 

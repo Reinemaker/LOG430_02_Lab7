@@ -60,4 +60,4 @@ public class EventMetadata
 
     [JsonPropertyName("totalSteps")]
     public int? TotalSteps { get; set; }
-} 
+}

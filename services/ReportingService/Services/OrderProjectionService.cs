@@ -26,7 +26,7 @@ public class OrderProjectionService : BackgroundService
         };
 
         _consumer = new ConsumerBuilder<string, string>(config).Build();
-        
+
         _eventHandlers = new Dictionary<string, Func<string, Task>>
         {
             { "OrderCreated", HandleOrderCreated },
@@ -71,12 +71,12 @@ public class OrderProjectionService : BackgroundService
                 try
                 {
                     var consumeResult = _consumer.Consume(stoppingToken);
-                    
+
                     _logger.LogInformation("Processing event for projection: {Topic} {Partition} {Offset}",
                         consumeResult.Topic, consumeResult.Partition, consumeResult.Offset);
 
                     await ProcessMessageAsync(consumeResult);
-                    
+
                     _consumer.Commit(consumeResult);
                 }
                 catch (ConsumeException ex)
@@ -117,7 +117,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var orderId = data.GetProperty("orderId").GetString();
         var customerId = data.GetProperty("customerId").GetString();
         var totalAmount = data.GetProperty("totalAmount").GetDecimal();
@@ -154,7 +154,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         await _orderReadModels.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
-        
+
         _logger.LogInformation("Order read model created/updated for order {OrderId}", orderId);
     }
 
@@ -162,7 +162,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var orderId = data.GetProperty("orderId").GetString();
         var paymentId = data.GetProperty("paymentId").GetString();
 
@@ -174,7 +174,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         await _orderReadModels.UpdateOneAsync(filter, update);
-        
+
         _logger.LogInformation("Order read model updated - confirmed for order {OrderId}", orderId);
     }
 
@@ -182,7 +182,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var orderId = data.GetProperty("orderId").GetString();
         var trackingNumber = data.GetProperty("trackingNumber").GetString();
         var carrier = data.GetProperty("carrier").GetString();
@@ -196,7 +196,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         await _orderReadModels.UpdateOneAsync(filter, update);
-        
+
         _logger.LogInformation("Order read model updated - shipped for order {OrderId}", orderId);
     }
 
@@ -204,7 +204,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var orderId = data.GetProperty("orderId").GetString();
 
         var filter = Builders<OrderReadModel>.Filter.Eq(o => o.OrderId, orderId);
@@ -214,7 +214,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         await _orderReadModels.UpdateOneAsync(filter, update);
-        
+
         _logger.LogInformation("Order read model updated - delivered for order {OrderId}", orderId);
     }
 
@@ -222,7 +222,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var paymentId = data.GetProperty("paymentId").GetString();
         var amount = data.GetProperty("amount").GetDecimal();
 
@@ -233,7 +233,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         var result = await _orderReadModels.UpdateManyAsync(filter, update);
-        
+
         _logger.LogInformation("Payment status updated for {Count} orders with payment {PaymentId}", result.ModifiedCount, paymentId);
     }
 
@@ -241,7 +241,7 @@ public class OrderProjectionService : BackgroundService
     {
         var eventData = JsonSerializer.Deserialize<JsonElement>(eventJson);
         var data = eventData.GetProperty("data");
-        
+
         var paymentId = data.GetProperty("paymentId").GetString();
 
         // Find orders with this payment ID and update payment status
@@ -251,7 +251,7 @@ public class OrderProjectionService : BackgroundService
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
 
         var result = await _orderReadModels.UpdateManyAsync(filter, update);
-        
+
         _logger.LogInformation("Payment status updated for {Count} orders with payment {PaymentId}", result.ModifiedCount, paymentId);
     }
 
@@ -260,4 +260,4 @@ public class OrderProjectionService : BackgroundService
         _consumer?.Dispose();
         base.Dispose();
     }
-} 
+}

@@ -489,4 +489,4 @@ public class SagaCompensationCompletedData
     public DateTime CompensationCompletedAt { get; set; }
 }
 
-#endregion 
+#endregion

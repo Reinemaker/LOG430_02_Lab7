@@ -12,4 +12,4 @@ public interface IChoreographedSagaStateManager
     Task DeleteSagaStateAsync(string sagaId);
     Task<List<ChoreographedSagaState>> GetSagaStatesByDateRangeAsync(DateTime startDate, DateTime endDate);
     Task<ChoreographedSagaStatistics> GetSagaStatisticsAsync();
-} 
+}

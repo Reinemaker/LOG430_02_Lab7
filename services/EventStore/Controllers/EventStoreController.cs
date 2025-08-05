@@ -180,4 +180,10 @@ public class EventStoreController : ControllerBase
         
         return state;
     }
+
+    [HttpGet("health")]
+    public ActionResult<string> Health()
+    {
+        return Ok("Event Store is healthy");
+    }
 } 

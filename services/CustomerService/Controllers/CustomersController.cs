@@ -228,6 +228,12 @@ public class CustomersController : ControllerBase
             return StatusCode(500, "Internal server error");
         }
     }
+
+    [HttpGet("health")]
+    public ActionResult<string> Health()
+    {
+        return Ok("Customer Service is healthy");
+    }
 }
 
 public class CustomerStatsRequest
